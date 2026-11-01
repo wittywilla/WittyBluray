@@ -38,7 +38,11 @@ jobs:
           if grep -q '^replace' go.mod; then echo "go.mod has replace directives, which go install refuses"; exit 1; fi
           go mod tidy -diff
       - run: go vet ./...
+      # Its tests run disc code in Java, and skip where there is none. The runner has one, so here a
+      # skip would hide a hole in the sandbox, and it fails instead.
       - run: go test ./... -count=1
+        env:
+          WMS_REQUIRE_JAVA: "1"
       - name: Build every platform
         run: |
           for t in windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 linux/arm linux/386 freebsd/amd64 freebsd/arm64; do
