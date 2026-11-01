@@ -21,7 +21,7 @@ It doesn't do these yet:
 
 Drawing menus into pictures, and the session code that turns steps into streams, stay with the server.
 
-How to use it is in **Help** inside WittyMediaServer: see the Blu-ray guide.
+How to use it is in **Help** inside WittyMediaServer: see Blu-rays.
 
 ## How to get it
 
