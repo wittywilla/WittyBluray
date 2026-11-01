@@ -21,8 +21,7 @@
   <a href="https://github.com/wittywilla/WittyMediaServer/blob/master/docs/BLURAY.md">Blu-ray guide</a>
 </p>
 
-> Read-only mirror of `modules/wittybluray` in [WittyMediaServer](https://github.com/wittywilla/WittyMediaServer),
-> where development happens. Please open issues and pull requests there.
+> WittyBluray is developed and released here. Issues and pull requests are welcome.
 
 WittyBluray is the Blu-ray engine of [WittyMediaServer](https://github.com/wittywilla/WittyMediaServer),
 and a library and tool for anyone building a player. It is an original implementation of the public
