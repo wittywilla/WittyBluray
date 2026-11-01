@@ -1,14 +1,14 @@
 {
   "id": "wittybluray",
   "name": "WittyBluray",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "repo": "wittywilla/WittyBluray",
   "license": "Apache-2.0",
   "delivery": "helper",
   "entry": "wittybluray-module",
-  "api": 2,
-  "minServer": "0.4.0-alpha",
-  "maxServer": "0.5.x",
+  "api": 3,
+  "minServer": "0.6.0-alpha",
+  "maxServer": "0.6.x",
   "group": "discs",
   "summary": "Blu-ray images with their menus, including 4K, HDR and 3D discs.",
   "libraries": [
@@ -17,10 +17,14 @@
   "requires": [
     "wittydisc"
   ],
-  "updates": "Playing an open disc: reading its playlists and clips, running its program, reading its menus and subtitles.",
-  "stays": "Finding and describing discs in a library scan, the check that refuses encrypted discs, drawing menus, turning a disc's steps into what the player shows, and discs with Java menus when Java menus are turned on: the built-in copy plays those. The server also opens every disc itself first, so a disc it can't read at all needs a new server.",
+  "updates": "All of the engine: playlists and clips, running a disc's program and its Java programs, reading menus and subtitles.",
+  "stays": "Drawing menus into pictures stays with the server, and so does refusing encrypted discs, on purpose. The session code that turns steps into streams stays too.",
   "needs": [
     "FFmpeg, which comes with the server",
     "Java, only for discs with Java menus, and only if you turn that on"
+  ],
+  "permissions": [
+    "programs",
+    "data"
   ]
 }

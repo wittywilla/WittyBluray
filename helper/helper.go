@@ -15,8 +15,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"strings"
 
 	"github.com/wittywilla/wittybluray"
+	"github.com/wittywilla/wittybluray/bdj"
 	"github.com/wittywilla/wittymodule"
 )
 
@@ -45,9 +47,13 @@ type Params struct {
 
 // Opened is the answer to "open".
 type Opened struct {
-	Encrypted bool        `json:"encrypted"`
-	Stereo3D  bool        `json:"stereo3d"`
-	PSR       [128]uint32 `json:"psr"`
+	Encrypted bool               `json:"encrypted"`
+	Stereo3D  bool               `json:"stereo3d"`
+	PSR       [128]uint32        `json:"psr"`
+	Label     string             `json:"label,omitempty"`
+	Index     *wittybluray.Index `json:"index,omitempty"`
+	BDJ       bool               `json:"bdj,omitempty"`
+	Playlists []int              `json:"playlists,omitempty"`
 }
 
 // Lead is the answer to "cliplead": see wittybluray.Disc.ClipLead.
@@ -63,8 +69,7 @@ type Main struct {
 
 // Answer is what a call to the navigator comes back with. PSR and the timer are
 // what the session reads without asking, so every answer brings them up to date.
-// General registers stay here: only the Java side reads those, and it isn't run
-// through a helper.
+// General registers stay here: only the Java side reads those, and that runs here too.
 type Answer struct {
 	PSR [128]uint32 `json:"psr"`
 	// TimerSeq changes when the disc starts a timer, even one the same as before:
@@ -84,6 +89,9 @@ type Helper struct {
 	nav      *wittybluray.Nav
 	timer    *wittybluray.NavTimer
 	timerSeq uint64
+
+	host *bdj.Host // a disc's Java programs, when they're running
+	work string    // their working folder
 }
 
 // Handle answers one call. wittymodule.Serve calls it for one call at a time.
@@ -94,13 +102,19 @@ func (h *Helper) Handle(method string, raw json.RawMessage) (any, []byte, error)
 			return nil, nil, &wittymodule.CallError{Code: "bad-call", Message: "the call's parameters are unreadable"}
 		}
 	}
-	if method == "open" {
+	switch method {
+	case "open":
 		return h.open(p)
+	case "javaprobe":
+		return javaProbe(raw)
 	}
 	if h.disc == nil {
 		return nil, nil, &wittymodule.CallError{Code: "not-open", Message: "no disc is open"}
 	}
 	d, nav := h.disc, h.nav
+	if strings.HasPrefix(method, "java") {
+		return h.javaCall(method, raw, p)
+	}
 	switch method {
 	case "playlist":
 		return send(d.Playlist(p.N), nil)
@@ -187,7 +201,11 @@ func (h *Helper) open(p Params) (any, []byte, error) {
 		_ = h.disc.Close()
 	}
 	h.disc, h.nav, h.timer = d, wittybluray.NewNav(d, p.Options), nil
-	return Opened{Encrypted: d.Encrypted, Stereo3D: d.Stereo3D, PSR: h.nav.Registers().PSR}, nil, nil
+	nums := make([]int, 0, len(d.Playlists))
+	for n := range d.Playlists {
+		nums = append(nums, n)
+	}
+	return Opened{Encrypted: d.Encrypted, Stereo3D: d.Stereo3D, PSR: h.nav.Registers().PSR, Label: d.Label, Index: d.Index, BDJ: d.BDJ, Playlists: nums}, nil, nil
 }
 
 func (h *Helper) step(st *wittybluray.Step) (any, []byte, error) { return h.answer(st, false) }

@@ -174,6 +174,8 @@ type Options struct {
 	// disc's storage for high scores and bookmarks, kept between sessions.
 	CacheDir, WorkDir, PersistDir string
 	OnEvent                       func(Event)
+	// OnFrame hears the number of each new picture.
+	OnFrame func(version int)
 	Log                           func(string)
 	// Limits ends the process when it uses too much; zero means DefaultLimits.
 	Limits Limits
@@ -412,8 +414,12 @@ func (h *Host) read(r io.Reader, ready chan struct{}) {
 			h.fmu.Lock()
 			h.version++
 			h.changes++
+			v := h.version
 			h.fmu.Unlock()
 			h.notify()
+			if h.o.OnFrame != nil {
+				h.o.OnFrame(v)
+			}
 		default:
 			if h.o.OnEvent != nil {
 				h.o.OnEvent(Event{Kind: w[0], Args: w[1:]})
