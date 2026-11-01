@@ -5,5 +5,6 @@ What changed in WittyBluray, newest first. What changed before it had a reposito
 
 ## Unreleased
 
+- The helper says which Java a server would use without running it (`javafind`), and a Java that was tried and failed is an answer rather than an error (`cantRun`), so a server can keep what it printed off the page. Which Java is only ever what the server's config file names.
 - The helper is now the only way a server reaches WittyBluray, with no copy compiled in. A disc's Java programs run in the helper too, and it asks for permission to start programs and to write to a folder of its own.
 - WittyBluray is now a project of its own, developed and released from this repository.

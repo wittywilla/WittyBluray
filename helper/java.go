@@ -56,6 +56,7 @@ type JavaExit struct {
 type JavaProbe struct {
 	Version string `json:"version"`
 	Path    string `json:"path"`
+	CantRun string `json:"cantRun,omitempty"` // Java was found and tried, and failed: why
 }
 
 var sessionRe = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
@@ -185,7 +186,20 @@ func javaProbe(raw json.RawMessage) (any, []byte, error) {
 	}
 	v, err := j.Probe(context.Background(), filepath.Join(data, "bdj"))
 	if err != nil {
-		return nil, nil, coded(err)
+		return JavaProbe{Version: v, Path: j.Path, CantRun: err.Error()}, nil, nil
 	}
 	return JavaProbe{Version: v, Path: j.Path}, nil, nil
+}
+
+// javaFind says which Java would be used, without running it.
+func javaFind(raw json.RawMessage) (any, []byte, error) {
+	var p JavaStart
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return nil, nil, &wittymodule.CallError{Code: "bad-call", Message: "the call's parameters are unreadable"}
+	}
+	j, err := bdj.Find(p.Java)
+	if err != nil {
+		return nil, nil, coded(err)
+	}
+	return JavaProbe{Path: j.Path}, nil, nil
 }

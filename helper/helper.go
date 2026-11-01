@@ -107,6 +107,8 @@ func (h *Helper) Handle(method string, raw json.RawMessage) (any, []byte, error)
 		return h.open(p)
 	case "javaprobe":
 		return javaProbe(raw)
+	case "javafind":
+		return javaFind(raw)
 	}
 	if h.disc == nil {
 		return nil, nil, &wittymodule.CallError{Code: "not-open", Message: "no disc is open"}
