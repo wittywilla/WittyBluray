@@ -5,11 +5,12 @@ package main
 
 import (
 	"github.com/wittywilla/wittybluray"
+	"github.com/wittywilla/wittybluray/diagnose"
 	"github.com/wittywilla/wittybluray/helper"
 	"github.com/wittywilla/wittymodule"
 )
 
 func main() {
-	h := &helper.Helper{}
+	h := &diagnose.Handler{Next: (&helper.Helper{}).Handle}
 	wittymodule.Main(wittybluray.ManifestJSON, h.Handle)
 }
