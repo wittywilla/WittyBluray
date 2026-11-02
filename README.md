@@ -2,6 +2,22 @@
 
 Plays Blu-ray images and `BDMV` folders in WittyMediaServer the way a player does, with their menus, including 4K, HDR and 3D discs. You need it if your disc libraries hold Blu-rays.
 
+<!-- pictures -->
+
+![A Blu-ray playing in a browser](docs/images/bluray-menu.webp)
+
+<sub>A Blu-ray image, in a browser. [Sita Sings the Blues](https://archive.org/details/SitaSingsTheBlues_201812), Nina Paley, [CC0](https://creativecommons.org/publicdomain/zero/1.0/).</sub>
+
+![A Blu-ray's page](docs/images/bluray-item.webp)
+
+<sub>A disc's page in WittyMediaServer. [Sita Sings the Blues](https://archive.org/details/SitaSingsTheBlues_201812), Nina Paley, [CC0](https://creativecommons.org/publicdomain/zero/1.0/).</sub>
+
+![A message saying the disc is encrypted](docs/images/bluray-refused.webp)
+
+<sub>An encrypted pressing gets a plain message, and nothing unlocks it. [Big Buck Bunny](https://peach.blender.org/), Blender Foundation, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/), from a disc pressed by Imagion AG.</sub>
+
+<!-- /pictures -->
+
 ## What it does
 
 - **Plays the disc's own program:** first play, titles, interactive and pop-up menus with animated highlights, chapters and the navigation timer, through a virtual machine for the disc's commands.
