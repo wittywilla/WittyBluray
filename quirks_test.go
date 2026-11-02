@@ -171,7 +171,6 @@ func hdmv(n int) IndexObject { return IndexObject{Kind: ObjectHDMV, MovieObject:
 func play(n uint32) Command       { return Command{0x22800000, n, 0} }
 func jumpTitle(n uint32) Command  { return Command{0x21810000, n, 0} }
 func jumpObject(n uint32) Command { return Command{0x21800000, n, 0} }
-func resume() Command             { return Command{0x01040000 | 0x20000000&0, 0, 0} }
 func move(gpr, v uint32) Command  { return Command{0x50400001, gpr, v} }
 func simpleDisc(t *testing.T, objs []MovieObject, pls map[string][]byte, titles ...IndexObject) *Disc {
 	t.Helper()

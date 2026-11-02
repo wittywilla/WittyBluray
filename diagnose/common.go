@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/wittywilla/wittydisc/isofs"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -40,26 +39,6 @@ func (s *discSource) close() {
 	if s.img != nil {
 		_ = s.img.Close() // only read from
 	}
-}
-
-// file finds a file by its path on the disc, whatever the case.
-func (s *discSource) file(name string) *discFile { return s.byUpper[strings.ToUpper(name)] }
-
-// read reads a file of the disc, at most max bytes.
-func (s *discSource) read(name string, max int64) ([]byte, error) {
-	f := s.file(name)
-	if f == nil {
-		return nil, fs.ErrNotExist
-	}
-	if s.img != nil {
-		return s.img.ReadFile(f.Name, max)
-	}
-	h, err := os.Open(f.Real)
-	if err != nil {
-		return nil, err
-	}
-	defer h.Close()
-	return io.ReadAll(io.LimitReader(h, max))
 }
 
 // maxFolderFiles bounds a disc folder's walk: real discs hold hundreds of files.

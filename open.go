@@ -414,23 +414,6 @@ func (d *Disc) streamsScrambled() (scrambled, sampled bool) {
 	return false, sampled
 }
 
-func readExtent(e FileExtent, n int64) ([]byte, error) {
-	f, err := os.Open(e.Path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	if n > e.Length {
-		n = e.Length
-	}
-	b := make([]byte, n)
-	got, err := f.ReadAt(b, e.Offset)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, err
-	}
-	return b[:got], nil
-}
-
 // Playlist returns a playlist by number.
 func (d *Disc) Playlist(n int) *Playlist { return d.Playlists[n] }
 

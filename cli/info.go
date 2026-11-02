@@ -1,5 +1,4 @@
-// Package cli holds the wittybluray commands, shared by the standalone
-// tool and WittyMediaServer's `wms bluray ...`.
+// Package cli holds the commands of the standalone wittybluray tool.
 package cli
 
 import (

@@ -176,7 +176,7 @@ type Options struct {
 	OnEvent                       func(Event)
 	// OnFrame hears the number of each new picture.
 	OnFrame func(version int)
-	Log                           func(string)
+	Log     func(string)
 	// Limits ends the process when it uses too much; zero means DefaultLimits.
 	Limits Limits
 	// OnExit hears how the process ended, once it has. stopped means Close asked

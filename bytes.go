@@ -68,12 +68,5 @@ func (r *rd) str(off, n int) string {
 	return string(s)
 }
 
-func (r *rd) bytes(off, n int) []byte {
-	if !r.ok(off, n) {
-		return nil
-	}
-	return r.b[off : off+n]
-}
-
 // ticks45 formats a 45 kHz timestamp as seconds.
 func ticks45(t uint32) float64 { return float64(t) / 45000 }
