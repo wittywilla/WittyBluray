@@ -108,7 +108,7 @@ To use it as a library, `wittybluray.Open` opens an image or folder, and `wittyb
 
 ## Licence
 
-Apache-2.0: see [LICENSE](LICENSE) and [NOTICE](NOTICE). If you redistribute it or build on it, keep the NOTICE attribution. It's an original implementation and contains no code from other players. `bdj/runtime.jar` is original code that re-implements the published interfaces disc applications link against, and contains no Java runtime. Each release archive carries a `THIRD-PARTY-NOTICES.txt` for what its programs link.
+GNU Affero General Public License v3.0 (or later): see [LICENSE](LICENSE) and [NOTICE](NOTICE). If you redistribute it or build on it, please keep the NOTICE attribution. It's an original implementation and contains no code from other players. `bdj/runtime.jar` is original code that re-implements the published interfaces disc applications link against, and contains no Java runtime. Each release archive carries a `THIRD-PARTY-NOTICES.txt` for what its programs link.
 
 ## Legal
 
@@ -140,5 +140,5 @@ To release:
 
 To take a version back, run the *withdraw* workflow from the *Actions* tab. It adds the version to a signed list on the release tagged `withdrawals`, which servers read.
 
-Licensed under Apache-2.0: see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Licensed under AGPL-3.0-or-later: see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 <!-- /module-kit -->
