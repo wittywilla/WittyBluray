@@ -55,7 +55,7 @@ func check(ctx context.Context, j *Job, src *discSource, o DiscOptions, res *Res
 		blurayRanking(j, d)
 		blurayClips(j, d, main)
 	})
-	if libbluray.Available() {
+	if o.SecondOpinion && libbluray.Available() {
 		j.Step("Comparing with libbluray", 0.16)
 		j.Engine("comparing with libbluray", func() { libblurayCrossCheck(j, d) })
 	}

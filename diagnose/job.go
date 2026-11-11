@@ -32,6 +32,10 @@ type DiscOptions struct {
 	Path       string  `json:"path"`
 	BDJ        bool    `json:"bdj,omitempty"`  // a disc's Java programs are on, on this server
 	Java       string  `json:"java,omitempty"` // the Java to use; "" finds it
+	// SecondOpinion: the server's owner turned on asking a libbluray installed on
+	// this machine to compare. Off unless said: it is someone else's parser reading
+	// the disc inside this process.
+	SecondOpinion bool `json:"secondOpinion,omitempty"`
 }
 
 // Result is what a server needs afterwards: its damage scan needs to know whether to expect
