@@ -377,6 +377,11 @@ func classify(r *Ranking, feats map[int]*feat) {
 			c.Class = ClassPlayAll
 		case c.Flags.Has(FlagEpisode):
 			c.Class = ClassEpisode
+		case isMenu(f):
+			c.Class = ClassMenu
+			c.Flags |= FlagMenu
+			c.Reasons = append(c.Reasons, "it carries menu graphics over little video of its own: a menu's background")
+			c.Evidence = append(c.Evidence, Evidence{Signal: "menu", Detail: "it carries menu graphics over little video of its own: a menu's background"})
 		case isDecoy(f):
 			c.Class = ClassDecoy
 			c.Flags |= FlagDecoy

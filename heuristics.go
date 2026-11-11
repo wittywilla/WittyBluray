@@ -54,9 +54,10 @@ const (
 	FlagBDJTarget                    // the disc's Java program names it (static reading of its JAR files)
 	FlagUHD                          // 2160p video
 	FlagHDR                          // HDR10, HDR10+ or Dolby Vision video
+	FlagMenu                         // a menu's background: menu graphics over a short loop
 )
 
-var flagNames = []string{"main", "decoy", "menuTarget", "firstPlay", "titleOne", "intro", "episode", "playAll", "duplicate", "shuffled", "outOfRange", "repeats", "segmentSpam", "missingClip", "zeroSize", "badChapters", "alternate", "stereo3D", "multiAngle", "audioOnly", "truncated", "ambiguous", "edition", "bdjTarget", "uhd", "hdr"}
+var flagNames = []string{"main", "decoy", "menuTarget", "firstPlay", "titleOne", "intro", "episode", "playAll", "duplicate", "shuffled", "outOfRange", "repeats", "segmentSpam", "missingClip", "zeroSize", "badChapters", "alternate", "stereo3D", "multiAngle", "audioOnly", "truncated", "ambiguous", "edition", "bdjTarget", "uhd", "hdr", "menu"}
 
 // Has reports whether every flag in g is set.
 func (f Flag) Has(g Flag) bool { return f&g == g }
@@ -107,6 +108,9 @@ const (
 	ClassTrailer    = "trailer"
 	ClassFeaturette = "featurette"
 	ClassExtra      = "extra"
+	// ClassMenu: what plays behind a menu. It has a menu graphics stream and
+	// little video of its own, and often plays one short clip over and over.
+	ClassMenu = "menu"
 )
 
 // Candidate is one playlist as the engine scored it.
@@ -486,6 +490,7 @@ type feat struct {
 	short     int
 	video     bool
 	audio     bool
+	graphics  bool // a play item carries menu graphics (an IG stream)
 	eligible  bool
 	partial   bool // some of it reads: a last resort when nothing is eligible
 	marks     []float64
@@ -936,6 +941,12 @@ func (x *rankCtx) measure(c *Candidate, pl *Playlist) *feat {
 	if len(pl.Items) > 0 {
 		first := &pl.Items[0]
 		f.video, f.audio = len(first.Video) > 0, len(first.Audio) > 0
+		for i := range pl.Items {
+			if len(pl.Items[i].IG) > 0 {
+				f.graphics = true
+				break
+			}
+		}
 		c.Audio, c.Subtitles = len(first.Audio), len(first.PG)
 		seen := map[string]bool{}
 		for _, a := range first.Audio {
@@ -1616,6 +1627,9 @@ func firstTitle(ix *Index) IndexObject {
 // isDecoy says the structure gives the playlist away as a decoy.
 func isDecoy(f *feat) bool {
 	c := f.c
+	if isMenu(f) {
+		return false
+	}
 	if c.Flags&(FlagShuffled|FlagSegmentSpam|FlagMissingClip|FlagZeroSize) != 0 {
 		return true
 	}
@@ -1632,3 +1646,13 @@ func isDecoy(f *feat) bool {
 	}
 	return false
 }
+
+// maxMenuSec is the most distinct video a menu's background has.
+const maxMenuSec = 10 * 60
+
+// isMenu says the playlist is what plays behind a menu: it carries menu
+// graphics and has little video of its own. Discs loop such a playlist by
+// naming one short clip many times over, which is what a decoy that repeats
+// its clips looks like too; the graphics and the length tell them apart, as
+// a decoy has to pass for the film.
+func isMenu(f *feat) bool { return f.graphics && f.c.Distinct < maxMenuSec }
