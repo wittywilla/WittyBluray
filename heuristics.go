@@ -472,7 +472,8 @@ type feat struct {
 	before    int
 	invalid   int // items that can't be read (no clip information, or past the clip's end)
 	joins     int
-	cont      int     // joins that continue in time or in the packet map
+	carry     int     // joins where time or the packet map carries straight on
+	cont      int     // those, and joins onto the very next clip on the disc
 	fwd       int     // joins that only go forward on the disc
 	back      int     // joins that go back
 	order     float64 // the sum of every join's evidence, each from -1 to 1
@@ -698,6 +699,7 @@ func (d *Disc) Analyze(opt RankOptions) *Ranking {
 	for i := range r.Candidates {
 		byNum[r.Candidates[i].PlaylistNum].c = &r.Candidates[i]
 	}
+	preferProgramCut(r, byNum, tiers)
 	if t := tiers[r.Candidates[0].PlaylistNum]; t < 9 {
 		r.Candidates[0].Flags |= FlagMain
 		r.Main = r.Candidates[0].PlaylistNum
@@ -731,6 +733,40 @@ func (d *Disc) Analyze(opt RankOptions) *Ranking {
 	r.warn(byNum)
 	r.confidence(byNum)
 	return r
+}
+
+// preferProgramCut moves to the front the cut of the top playlist's film
+// that the disc's own program plays, when the top one is another cut of it
+// that only won on length. A film with a theatrical and an extended cut has
+// both as clean playlists sharing most clips; the one first play or title 1
+// leads to is the disc's own choice, and the other is listed as an edition.
+func preferProgramCut(r *Ranking, feats map[int]*feat, tiers map[int]int) {
+	top := feats[r.Candidates[0].PlaylistNum]
+	if top == nil || tiers[top.c.PlaylistNum] != 0 || top.nav >= 2 {
+		return
+	}
+	topTimes := clipTimes(top)
+	for i := 1; i < len(r.Candidates) && i < 64; i++ {
+		f := feats[r.Candidates[i].PlaylistNum]
+		if f == nil || tiers[f.c.PlaylistNum] != 0 || f.nav < 2 || f.back > 0 || f.c.Distinct < top.c.Distinct*0.5 {
+			continue
+		}
+		shared := 0.0
+		for clip, t := range clipTimes(f) {
+			shared += math.Min(t, topTimes[clip])
+		}
+		if shared < 0.5*math.Min(f.c.Distinct, top.c.Distinct) {
+			continue
+		}
+		f.c.note("programCut", 0, 0, "a cut of the same film as playlist %05d, which is longer; this is the one the disc's program plays", top.c.PlaylistNum)
+		picked := r.Candidates[i]
+		copy(r.Candidates[1:i+1], r.Candidates[:i])
+		r.Candidates[0] = picked
+		for k := 0; k <= i; k++ {
+			feats[r.Candidates[k].PlaylistNum].c = &r.Candidates[k]
+		}
+		return
+	}
 }
 
 func clipNumber(s string) (int, bool) {
@@ -861,6 +897,9 @@ func (x *rankCtx) measure(c *Candidate, pl *Playlist) *feat {
 			f.joins++
 			e, badCC := x.join(&pl.Items[i-1], it)
 			f.order += e
+			if e >= 0.99 {
+				f.carry++
+			}
 			switch {
 			case e >= 0.75:
 				f.cont++
@@ -949,6 +988,9 @@ func (x *rankCtx) measure(c *Candidate, pl *Playlist) *feat {
 //     map: 1;
 //   - another clip whose time carries on from the first's (studios cut one
 //     encode into clips, and the clock runs through): 1;
+//   - another clip whose times lie wholly after the first's 0.5, wholly
+//     before -0.8 (the same clock, with a gap: a cut that leaves scenes
+//     out, or a shuffle);
 //   - on an image, where the clips lie: the very next clip on the disc 0.8,
 //     any later one 0.5, an earlier one -0.8. A film's clips are laid out
 //     in playing order, because a player cannot seek back between two
@@ -992,6 +1034,17 @@ func (x *rankCtx) join(a, b *PlayItem) (e float64, badCC bool) {
 		return 1, false
 	}
 	badCC = b.ConnectionCondition == 6 && !pts
+	// Clips cut from one encode keep its clock, so their times do not
+	// overlap, and which comes later is plain. Clips that each start their
+	// clock afresh overlap, and say nothing.
+	if a.Duration() >= 2 && b.Duration() >= 2 {
+		switch {
+		case b.In >= a.Out:
+			return 0.5, badCC
+		case b.Out <= a.In:
+			return -0.8, badCC
+		}
+	}
 	if ra, oka := x.rankOf[a.Clip]; oka {
 		if rb, okb := x.rankOf[b.Clip]; okb {
 			switch {
@@ -1169,7 +1222,17 @@ func crossPlaylist(r *Ranking, feats []*feat, w Weights) {
 		if len(g) < 2 {
 			continue
 		}
-		rate := func(f *feat) float64 { return f.natural()*10 + float64(f.nav) }
+		// Joins that carry on (time, packet map, the next clip on the disc)
+		// are strong evidence and weigh most; then what the disc's program
+		// points at; clip numbers and "later on the disc" weigh least, so
+		// they only decide when nothing else speaks.
+		rate := func(f *feat) float64 {
+			strong := 0.0
+			if f.joins > 0 {
+				strong = float64(f.cont) / float64(f.joins)
+			}
+			return strong*10 + float64(f.nav)*2 + f.natural()
+		}
 		keep := g[0]
 		for _, f := range g[1:] {
 			if rate(f) > rate(keep)+1e-9 {

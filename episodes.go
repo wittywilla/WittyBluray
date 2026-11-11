@@ -337,7 +337,7 @@ func splitPlayAll(r *Ranking, feats map[int]*feat) {
 	}
 	pl := main.pl
 	n := len(pl.Items)
-	if n < 3 || n > 64 || main.cont > 0 || main.back > 0 || len(main.set) != n || main.c.Clips != n {
+	if n < 3 || n > 64 || main.carry > 0 || main.back > 0 || len(main.set) != n || main.c.Clips != n {
 		return
 	}
 	durs := make([]float64, n)
@@ -545,6 +545,8 @@ func (r *Ranking) confidence(feats map[int]*feat) {
 			say(-0.35, "%d playlists play the same segments in other orders that follow on just as well; which one is the film cannot be told from structure.", main.ClusterSize-1)
 		case main.ClusterSize > 1 && f.joins > 0 && f.natural() >= 0.85:
 			say(0.12, "Of %d playlists with the same segments it is the one whose clips follow on from each other (%d of %d joins continue).", main.ClusterSize, f.cont, f.joins)
+		case main.ClusterSize > 1 && f.nav >= 2:
+			say(0.05, "Of %d playlists with the same segments it is the one the disc's program points at.", main.ClusterSize)
 		case main.ClusterSize > 1 && f.joins > 0:
 			say(0.0, "Of %d playlists with the same segments it is in the most natural order, on weak evidence (clip numbers or positions only).", main.ClusterSize)
 			conf -= 0.1
