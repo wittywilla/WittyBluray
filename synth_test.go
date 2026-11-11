@@ -418,7 +418,12 @@ func synPackets(n int) []byte { return stream(n) }
 // whole, so the clips must be small: shrink() first.
 func (s *synDisc) writeFolder(t testing.TB) string {
 	t.Helper()
-	dir := t.TempDir()
+	return s.writeFolderAt(t, t.TempDir())
+}
+
+// writeFolderAt writes the disc as a BDMV folder in dir.
+func (s *synDisc) writeFolderAt(t testing.TB, dir string) string {
+	t.Helper()
 	write := func(name string, data []byte) {
 		p := filepath.Join(dir, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {

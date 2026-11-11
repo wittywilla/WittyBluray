@@ -5,6 +5,8 @@ What changed in WittyBluray, newest first. What changed before it had a reposito
 
 ## Unreleased
 
+- **WittyBluray 0.4.0:** The playlist ranking engine, the static reading of a disc's programs, chapters, the cross-checks, BACKUP repair and the optional libbluray second opinion listed above, for WittyMediaServer up to 0.8.x. It needs WittyDisc 0.2.1, which reads small files UDF keeps inside their file entry, so the workaround for that is gone. purego (Apache-2.0) is credited in NOTICE. The synthetic discs can be written out for other projects' tests (`WITTYBLURAY_SYNTH_OUT`).
+
 - The main feature is chosen by a playlist ranking engine (`Analyze`, `RankPlaylists`, `Explain`, `Episodes`, `DefaultWeights`), shaped like WittyDVD's title ranking. It reads only unencrypted navigation and metadata. See `docs/PLAYLIST-HEURISTICS.md`.
   - Among playlists of the same clips in different orders (playlist obfuscation), the film's order is found from how each clip joins the next: the clock carrying on, the clip's packet map, where the clips lie on an image, and last the clip numbers. Orders that follow on equally well are called ambiguous rather than guessed.
   - Decoys that repeat clips, shuffle a subset, pad with fake half-second clips, name missing or empty clips or run past a clip's end are told apart; they are grouped into clusters.

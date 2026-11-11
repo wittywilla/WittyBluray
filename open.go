@@ -816,54 +816,7 @@ type imageSource struct{ img *isofs.Disc }
 func (s *imageSource) Describe() string { return s.img.Path }
 func (s *imageSource) Close() error     { return s.img.Close() }
 func (s *imageSource) ReadFile(name string, max int64) ([]byte, error) {
-	if b, ok := s.embedded(name, max); ok {
-		return b, nil
-	}
 	return s.img.ReadFile(name, max)
-}
-
-// embedded reads a small file that UDF keeps inside its own file entry
-// instead of in blocks of its own. WittyDisc 0.2.0 describes such a file as
-// the last bytes of the entry's block; they are in fact right after the
-// entry's fixed part and extended attributes, so the block is read here and
-// the bytes taken from where the entry says. ok is false for every other
-// file, and for an entry that does not hold exactly the file.
-func (s *imageSource) embedded(name string, max int64) ([]byte, bool) {
-	f, found := s.img.Find(name)
-	if !found || f.IsDir || len(f.Extents) != 1 || s.img.Format != "udf" {
-		return nil, false
-	}
-	e := f.Extents[0]
-	const sector = 2048
-	if e.Offset%sector == 0 || f.Size <= 0 || f.Size >= sector || e.Length != f.Size || (e.Offset+e.Length)%sector != 0 {
-		return nil, false
-	}
-	b, err := s.img.ReadSectors(e.Offset/sector, 1)
-	if err != nil || len(b) < sector {
-		return nil, false
-	}
-	var fixed int
-	switch uint16(b[0]) | uint16(b[1])<<8 {
-	case 261: // file entry
-		fixed = 176
-	case 266: // extended file entry
-		fixed = 216
-	default:
-		return nil, false
-	}
-	le := func(o int) int64 { return int64(b[o]) | int64(b[o+1])<<8 | int64(b[o+2])<<16 | int64(b[o+3])<<24 }
-	if (uint16(b[34])|uint16(b[35])<<8)&7 != 3 { // not kept in the entry
-		return nil, false
-	}
-	at, n := int64(fixed)+le(fixed-8), le(fixed-4)
-	if n != f.Size || at < int64(fixed) || at+n > sector {
-		return nil, false
-	}
-	out := append([]byte(nil), b[at:at+n]...)
-	if max > 0 && int64(len(out)) > max {
-		out = out[:max]
-	}
-	return out, true
 }
 func (s *imageSource) Extents(name string) ([]FileExtent, error) {
 	f, ok := s.img.Find(name)

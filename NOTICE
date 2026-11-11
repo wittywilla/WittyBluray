@@ -22,3 +22,12 @@ disc applications link against. It is not a Java runtime, contains no Java
 runtime, and has not been tested for compatibility by any certifying body.
 Java is a trademark of Oracle and/or its affiliates. Blu-ray Disc and BD-J are
 trademarks of the Blu-ray Disc Association.
+
+Third-party components:
+
+- ebitengine/purego (Apache-2.0, https://github.com/ebitengine/purego), linked
+  into wittybluray-module and the wittybluray command on macOS and Windows, and
+  on Linux only in a build made with -tags libbluray. It is how a libbluray the
+  user has installed is loaded at run time for a second opinion. No libbluray
+  code is included, linked or shipped: libbluray (LGPL-2.1-or-later) is only
+  ever the user's own copy.
