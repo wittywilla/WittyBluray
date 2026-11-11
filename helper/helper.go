@@ -22,6 +22,7 @@ import (
 
 	"github.com/wittywilla/wittybluray"
 	"github.com/wittywilla/wittybluray/bdj"
+	"github.com/wittywilla/wittybluray/libbluray"
 	"github.com/wittywilla/wittymodule"
 )
 
@@ -97,6 +98,37 @@ type Helper struct {
 	work string    // their working folder
 }
 
+// Ranked answers "ranking": the playlists scored and explained. Note says
+// why no second opinion was taken, when one was asked for.
+type Ranked struct {
+	Ranking   *wittybluray.Ranking `json:"ranking"`
+	Note      string               `json:"note,omitempty"`
+	Libbluray libbluray.Cap        `json:"libbluray"`
+}
+
+// ChapterList answers "chapters": a playlist's chapters on its playing time.
+type ChapterList struct {
+	Playlist int                   `json:"playlist"`
+	Duration float64               `json:"durationSec"`
+	Chapters []wittybluray.Chapter `json:"chapters"`
+}
+
+// Consistency answers "consistency": where the copy's structures disagree
+// and how it was read.
+type Consistency struct {
+	Issues     []wittybluray.Inconsistency `json:"issues"`
+	FromBackup []string                    `json:"fromBackup,omitempty"`
+	Notes      []string                    `json:"notes,omitempty"`
+	Damaged    []string                    `json:"damaged,omitempty"`
+	MovieOnly  bool                        `json:"movieOnly,omitempty"`
+	Meta       *wittybluray.DiscMeta       `json:"meta,omitempty"`
+}
+
+// Capabilities answers "capabilities": what optional help this helper has.
+type Capabilities struct {
+	Libbluray libbluray.Cap `json:"libbluray"`
+}
+
 // Handle answers one call. wittymodule.Serve calls it for one call at a time.
 func (h *Helper) Handle(method string, raw json.RawMessage) (any, []byte, error) {
 	var p Params
@@ -112,6 +144,8 @@ func (h *Helper) Handle(method string, raw json.RawMessage) (any, []byte, error)
 		return javaProbe(raw)
 	case "javafind":
 		return javaFind(raw)
+	case "capabilities":
+		return Capabilities{Libbluray: libbluray.Capability()}, nil, nil
 	}
 	if h.disc == nil {
 		return nil, nil, &wittymodule.CallError{Code: "not-open", Message: "no disc is open"}
@@ -130,6 +164,23 @@ func (h *Helper) Handle(method string, raw json.RawMessage) (any, []byte, error)
 			return Main{N: pl.Number, OK: true}, nil, nil
 		}
 		return Main{}, nil, nil
+	case "ranking":
+		// The whole ranking with its reasons and confidence. With Shown, a
+		// libbluray the user has installed is asked for a second opinion.
+		if p.Shown {
+			r, note := libbluray.Analyze(d, wittybluray.RankOptions{})
+			return Ranked{Ranking: r, Note: note, Libbluray: libbluray.Capability()}, nil, nil
+		}
+		return Ranked{Ranking: d.Analyze(wittybluray.RankOptions{})}, nil, nil
+	case "chapters":
+		pl := d.Playlist(p.N)
+		if pl == nil {
+			return nil, nil, &wittymodule.CallError{Code: "bad-call", Message: fmt.Sprintf("the disc has no playlist %d", p.N)}
+		}
+		return ChapterList{Playlist: pl.Number, Duration: d.PlaylistDuration(pl), Chapters: pl.Chapters()}, nil, nil
+	case "consistency":
+		c := Consistency{Issues: d.Consistency(), FromBackup: d.FromBackup, Notes: d.Notes, Damaged: d.Damaged, MovieOnly: d.MovieOnly, Meta: d.Meta()}
+		return c, nil, nil
 	case "extents":
 		ext, err := d.ClipExtents(p.Name)
 		return send(&ext, err)

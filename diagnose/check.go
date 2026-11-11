@@ -14,6 +14,7 @@ import (
 
 	"github.com/wittywilla/wittybluray"
 	"github.com/wittywilla/wittybluray/bdj"
+	"github.com/wittywilla/wittybluray/libbluray"
 )
 
 const (
@@ -54,7 +55,7 @@ func check(ctx context.Context, j *Job, src *discSource, o DiscOptions, res *Res
 		blurayRanking(j, d)
 		blurayClips(j, d, main)
 	})
-	if libblurayCrossCheck != nil {
+	if libbluray.Available() {
 		j.Step("Comparing with libbluray", 0.16)
 		j.Engine("comparing with libbluray", func() { libblurayCrossCheck(j, d) })
 	}
@@ -255,7 +256,16 @@ func blurayRanking(j *Job, d *wittybluray.Disc) {
 	}
 	what := "How the engine chose the main feature: every playlist is scored from the disc's navigation and clip information alone."
 	if r.BDJ {
-		what += " The disc starts with a Java program, which isn't read here, so the playlists' structure decides."
+		what += " The disc starts with a Java program, which isn't run for this: its class files are read for the playlists they name, and the playlists' structure decides the rest."
+	}
+	if r.Main >= 0 {
+		what += fmt.Sprintf(" Confidence in playlist %05d: %s (%.2f).", r.Main, r.ConfidenceLabel, r.Confidence)
+		for _, w := range r.Why {
+			det = append(det, "Why: "+w)
+		}
+	}
+	for _, e := range r.Editions {
+		det = append(det, fmt.Sprintf("Edition: playlist %05d, %s (%s)", e.Playlist, hms(e.Duration), e.Label))
 	}
 	if len(r.Episodes) > 0 {
 		var eps []string
@@ -265,6 +275,10 @@ func blurayRanking(j *Job, d *wittybluray.Disc) {
 		det = append(det, "Episodes in order: "+strings.Join(eps, ", "))
 	}
 	j.Add(Finding{Severity: SevInfo, Title: "Ranked playlists", What: what, Details: det, More: len(r.Candidates) - shown})
+	if r.Main >= 0 && r.ConfidenceLabel == "low" {
+		j.Add(Finding{Severity: SevWarn, Title: "The main feature is a guess", What: "Nothing on this disc that can be read without playing it says for sure which playlist is the film.", Fix: "If the wrong film plays, start it from the disc's own menu, or pick another playlist from the disc's page.", Details: r.Why})
+	}
+	blurayConsistency(j, d)
 	if len(r.Decoys) > 0 {
 		var list []string
 		for _, n := range r.Decoys {

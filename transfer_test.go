@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"image/color"
+	"math"
 	"testing"
 )
 
@@ -83,7 +84,7 @@ func TestBadMenusAreRefused(t *testing.T) {
 		"huge frame":      func(m *Menu) { m.Width, m.Height = 1<<20, 1<<20 },
 		"negative frame":  func(m *Menu) { m.Width = -1 },
 		"negative crop":   func(m *Menu) { m.Pages[0].In.Effects[0].Objects[0].cw = -1 },
-		"endless crop":    func(m *Menu) { m.Pages[0].In.Effects[0].Objects[0].ch = 1 << 40 },
+		"endless crop":    func(m *Menu) { m.Pages[0].In.Effects[0].Objects[0].ch = 1 << 30 },
 		"negative time":   func(m *Menu) { m.Timeout = -1 },
 		"negative effect": func(m *Menu) { m.Pages[0].In.Effects[0].DurationSec = -1 },
 	} {
@@ -106,7 +107,7 @@ func TestSoundsTravel(t *testing.T) {
 	if !ok || !bytes.Equal(a, b) {
 		t.Errorf("%x, want %x", b, a)
 	}
-	for _, c := range []SoundClip{{offset: -1, length: 1}, {offset: 1, length: -1}, {offset: 6, length: 2}, {offset: 1 << 40, length: 1}, {offset: 1, length: 1<<63 - 1}} {
+	for _, c := range []SoundClip{{offset: -1, length: 1}, {offset: 1, length: -1}, {offset: 6, length: 2}, {offset: math.MaxInt, length: 1}, {offset: 1, length: math.MaxInt}} {
 		if _, err := viaGob(t, &Sounds{Clips: []SoundClip{c}, data: s.data}); err == nil {
 			t.Errorf("a clip at %d of %d bytes was accepted", c.offset, c.length)
 		}

@@ -362,6 +362,7 @@ type Weights struct {
 	BDJName           float64 // the Java program has its five digits as a string
 	BDJNumber         float64 // the Java program pushes its number, and few other long playlists'
 	Ambiguous         float64 // nothing tells it from a sibling of the same video
+	Rewind            float64 // times the share of joins that go back inside one clip
 }
 
 // DefaultWeights are the weights MainPlaylist uses.
@@ -395,6 +396,7 @@ var DefaultWeights = Weights{
 	BDJName:           5,
 	BDJNumber:         2,
 	Ambiguous:         0,
+	Rewind:            -40,
 }
 
 // RankOptions add what the caller knows beyond the disc's structures.
@@ -476,6 +478,7 @@ type feat struct {
 	cont      int     // those, and joins onto the very next clip on the disc
 	fwd       int     // joins that only go forward on the disc
 	back      int     // joins that go back
+	rewinds   int     // those that go back inside one clip: no film does that
 	order     float64 // the sum of every join's evidence, each from -1 to 1
 	badCC     int
 	shortTime float64 // play time on clips whose stream file is cut short
@@ -907,6 +910,9 @@ func (x *rankCtx) measure(c *Candidate, pl *Playlist) *feat {
 				f.fwd++
 			case e < 0:
 				f.back++
+				if e <= -0.99 {
+					f.rewinds++
+				}
 			}
 			if badCC {
 				f.badCC++
@@ -1103,6 +1109,10 @@ func scorePlaylist(f *feat, w Weights) {
 		share := float64(f.back) / float64(max(f.joins, 1))
 		c.note("backJumps", w.BackJumpAny+w.BackJumpShare*share, 0, "plays its clips out of order (%d of %d joins go back)", f.back, f.joins)
 	}
+	if f.rewinds > 0 {
+		share := float64(f.rewinds) / float64(max(f.joins, 1))
+		c.note("rewinds", w.Rewind*share, 0, "%d of %d joins go back to an earlier part of the clip just played, which a film never does", f.rewinds, f.joins)
+	}
 	if f.joins > 0 && f.cont > 0 {
 		c.note("continuity", w.Continuity*float64(f.cont)/float64(f.joins), 0, "%d of %d joins continue where the last segment ended (presentation time, clip packet map, or the next clip on the disc)", f.cont, f.joins)
 	}
@@ -1171,6 +1181,20 @@ func overlap(a, b map[segKey]bool) int {
 		}
 	}
 	return n
+}
+
+// overlapTime is the playing time of the segments two playlists share.
+func overlapTime(a, b *feat) float64 {
+	if len(a.keys) > len(b.keys) {
+		a, b = b, a
+	}
+	t := 0.0
+	for _, k := range a.keys {
+		if b.set[k] {
+			t += k.dur()
+		}
+	}
+	return t
 }
 
 func sameSeq(a, b []segKey) bool {
@@ -1305,7 +1329,10 @@ func crossPlaylist(r *Ranking, feats []*feat, w Weights) {
 			if a == b || a.back <= b.back || a.setHash == b.setHash {
 				continue
 			}
-			if ov := overlap(a.set, b.set); ov*5 >= len(a.set)*4 && ov*2 >= len(b.set) {
+			// By playing time, not by count: a copy padded with fake clips
+			// of half a second each is still a copy.
+			n := overlap(a.set, b.set)
+			if ov := overlapTime(a, b); (ov >= 0.8*a.c.Distinct && ov >= 0.5*b.c.Distinct) || (n*5 >= len(a.set)*4 && n*2 >= len(b.set)) {
 				a.c.note("shuffled", w.Shuffled, FlagShuffled, "plays playlist %05d's segments in a scrambled order", b.c.PlaylistNum)
 				break
 			}
@@ -1578,6 +1605,11 @@ func isDecoy(f *feat) bool {
 		return true
 	}
 	if f.valid > 0 && 1-c.Distinct/f.valid >= 0.5 {
+		return true
+	}
+	// Going back inside a clip at two joins or more, and at a quarter of
+	// them: the clip's parts are being played out of their own order.
+	if f.rewinds >= 2 && f.rewinds*4 >= f.joins {
 		return true
 	}
 	return false

@@ -33,7 +33,7 @@ var version = "dev"
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
-		case "info", "playlist", "menu", "walk", "render", "bdj":
+		case "info", "rank", "playlist", "menu", "walk", "render", "bdj":
 			os.Exit(cli.Bluray(os.Args[1:]))
 		case "version", "--version", "-v":
 			fmt.Println("wittybluray", version)
@@ -43,6 +43,7 @@ func main() {
 	fmt.Fprint(os.Stderr, `wittybluray `+version+`: inspect Blu-ray images and BDMV folders
 
   wittybluray info      <disc>            titles, the disc's program, playlists, clips and streams
+  wittybluray rank      <disc> [json]     which playlist is the feature and why: every playlist scored, editions, episodes, chapters, what disagrees
   wittybluray playlist  <disc> <number>   every item, stream and chapter of one playlist
   wittybluray menu      <disc> <playlist>   a playlist's menu: pages, buttons and every command
   wittybluray walk      <disc> [button...] simulate inserting the disc, then pressing menu buttons by id
