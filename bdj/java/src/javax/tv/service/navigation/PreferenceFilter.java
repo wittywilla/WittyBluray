@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.tv.service.navigation;
 /** Preference lists (favourites) do not exist on a disc player: nothing passes. */
 public class PreferenceFilter extends ServiceFilter {

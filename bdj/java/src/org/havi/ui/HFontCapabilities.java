@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.havi.ui;
 /** What a font can draw, asked of the font itself. */
 public class HFontCapabilities {

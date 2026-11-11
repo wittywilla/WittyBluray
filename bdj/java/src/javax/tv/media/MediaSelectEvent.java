@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.tv.media;
 public abstract class MediaSelectEvent extends javax.media.ControllerEvent {
     private final javax.tv.locator.Locator[] sel;

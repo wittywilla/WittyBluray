@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.bluray.media;
 /** A selectable stream by number, the shape of the audio and subtitle controls. */
 public interface StreamControl extends javax.media.Control {

@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 WittyWilla and contributors
 # Builds ../runtime.jar (the platform disc applications link against) and
 # ../testdata/00000.jar (the test disc's application). Needs a JDK 11 or newer;
 # nothing here is needed to build or run the server, only to change the runtime.

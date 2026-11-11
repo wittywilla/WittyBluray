@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.media;
 /** A media format: an encoding name and the Java type its data comes in. */
 public class Format implements Cloneable {

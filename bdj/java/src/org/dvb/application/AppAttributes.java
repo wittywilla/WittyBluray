@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.dvb.application;
 public interface AppAttributes {
     int DVB_J_application = 1, DVB_HTML_application = 2, BD_J_application = 1;

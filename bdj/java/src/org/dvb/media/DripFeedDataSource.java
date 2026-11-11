@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.dvb.media;
 
 /** Media pushed in by the application; with no broadcast decoder behind it the data is taken and dropped. */

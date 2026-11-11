@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.tv.service;
 public abstract class SIChangeEvent extends java.util.EventObject {
     private final SIChangeType type;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.havi.ui.event;
 public class HBackgroundImageEvent extends java.util.EventObject {
     public static final int BACKGROUNDIMAGE_FIRST = 1, BACKGROUNDIMAGE_LOADED = 1, BACKGROUNDIMAGE_FILE_NOT_FOUND = 2, BACKGROUNDIMAGE_IOERROR = 3, BACKGROUNDIMAGE_INVALID = 4, BACKGROUNDIMAGE_LAST = 4;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
+
 // What a crawl of a disc's menus shares with the same check of a DVD.
 
 package diagnose

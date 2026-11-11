@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.tv.service;
 public class ServiceInformationType {
     public static final ServiceInformationType ATSC_PSIP = new ServiceInformationType("ATSC_PSIP");

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.havi.ui.event;
 public class HItemEvent extends java.awt.AWTEvent {
     public static final int ITEM_FIRST = 2006, ITEM_START_CHANGE = 2006, ITEM_TOGGLE_SELECTED = 2007, ITEM_SELECTED = 2008, ITEM_CLEARED = 2009, ITEM_SELECTION_CLEARED = 2010,

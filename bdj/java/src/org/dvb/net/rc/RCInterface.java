@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.dvb.net.rc;
 
 /** A return channel; a disc player with the cable out has none, so none is ever handed out. */

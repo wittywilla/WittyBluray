@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.tv.media;
 public interface MediaSelectControl extends javax.media.Control {
     void select(javax.tv.locator.Locator component) throws javax.tv.service.selection.InvalidServiceComponentException, javax.tv.service.selection.InsufficientResourcesException, SecurityException;

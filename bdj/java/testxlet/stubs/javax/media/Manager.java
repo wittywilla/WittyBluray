@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.media;
 
 /** Only for compiling the test discs as a real disc is compiled, against the published signatures; see README in this folder. */

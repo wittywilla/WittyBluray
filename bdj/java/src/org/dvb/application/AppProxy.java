@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.dvb.application;
 public interface AppProxy {
     int NOT_LOADED = 1, PAUSED = 2, STARTED = 3, DESTROYED = 4;

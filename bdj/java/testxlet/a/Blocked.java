@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package a;
 
 /** Probes that name a class disc code must not be able to link: kept apart, so that only calling one fails. */

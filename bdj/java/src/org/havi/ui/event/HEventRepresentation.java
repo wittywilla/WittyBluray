@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.havi.ui.event;
 public class HEventRepresentation {
     public static final int ER_TYPE_NOT_SUPPORTED = 0, ER_TYPE_STRING = 1, ER_TYPE_COLOR = 2, ER_TYPE_SYMBOL = 4;

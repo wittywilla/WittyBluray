@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.havi.ui;
 public class HImageHints {
     public static final int NATURAL_IMAGE = 1, CARTOON = 2, GRAPHICS = 3, LINE_ART = 4;

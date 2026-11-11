@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.havi.ui;
 public class HStaticRange extends HVisible implements HNoInputPreferred, HOrientable {
     public static final int SLIDER_BEHAVIOR = 0, SCROLLBAR_BEHAVIOR = 1;

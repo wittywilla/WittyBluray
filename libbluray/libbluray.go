@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
+
 // Package libbluray optionally cross-checks WittyBluray's pure-Go reading of
 // a disc against libbluray's.
 //

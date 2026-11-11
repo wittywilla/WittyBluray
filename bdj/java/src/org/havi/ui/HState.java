@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.havi.ui;
 public interface HState {
     int FOCUSED_STATE_BIT = 1, ACTIONED_STATE_BIT = 2, DISABLED_STATE_BIT = 4;

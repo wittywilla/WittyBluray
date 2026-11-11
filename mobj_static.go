@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
+
 package wittybluray
 
 // A static reading of the disc's HDMV program: where the commands of a movie

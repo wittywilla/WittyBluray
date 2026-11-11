@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.havi.ui;
 public abstract class HScreenConfigTemplate {
     public static final int REQUIRED = 1, PREFERRED = 2, UNNECESSARY = 3, PREFERRED_NOT = 4, REQUIRED_NOT = 5;

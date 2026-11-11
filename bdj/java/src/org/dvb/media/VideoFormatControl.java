@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.dvb.media;
 public interface VideoFormatControl extends javax.media.Control {
     int AFD_NOT_PRESENT = -1, AFD_16_9_TOP = 2, AFD_14_9_TOP = 3, AFD_GT_16_9 = 4, AFD_SAME = 8, AFD_4_3 = 9, AFD_16_9 = 10, AFD_14_9 = 11, AFD_4_3_SP_14_9 = 13, AFD_16_9_SP_14_9 = 14, AFD_16_9_SP_4_3 = 15;

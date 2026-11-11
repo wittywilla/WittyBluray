@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.tv.service.selection;
 public class PresentationTerminatedEvent extends ServiceContextEvent {
     public static final int SERVICE_VANISHED = 1, TUNED_AWAY = 2, RESOURCES_REMOVED = 3, ACCESS_WITHDRAWN = 4, USER_STOP = 5, OTHER = 255;

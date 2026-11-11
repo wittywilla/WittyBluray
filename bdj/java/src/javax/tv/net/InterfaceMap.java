@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.tv.net;
 /** Maps a locator to the local network interface that carries it: a disc player has no broadcast interfaces, so nothing maps. */
 public class InterfaceMap {

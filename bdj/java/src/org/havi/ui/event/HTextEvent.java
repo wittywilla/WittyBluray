@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.havi.ui.event;
 public class HTextEvent extends java.awt.AWTEvent {
     public static final int TEXT_FIRST = 2019, TEXT_START_CHANGE = 2019, TEXT_CHANGE = 2020, TEXT_END_CHANGE = 2021, TEXT_CARET_CHANGE = 2022,

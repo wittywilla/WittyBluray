@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.bluray.bdplus;
 /** BD+ is not present on this player, and never will be: linking this class is all that works. */
 public class Status {

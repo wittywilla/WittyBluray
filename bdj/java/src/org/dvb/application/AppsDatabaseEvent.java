@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.dvb.application;
 public class AppsDatabaseEvent extends java.util.EventObject {
     public static final int NEW_DATABASE = 0, APP_ADDED = 1, APP_CHANGED = 2, APP_DELETED = 3;

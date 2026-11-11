@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.tv.service.transport;
 public class ServiceDetailsChangeEvent extends javax.tv.service.SIChangeEvent {
     public ServiceDetailsChangeEvent(Object source, javax.tv.service.SIChangeType t, javax.tv.service.navigation.ServiceDetails d) { super(source, t, d); }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.bluray.ui.event;
 public class HRcEvent extends org.havi.ui.event.HRcEvent {
     public static final int RC_LAST = 465;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
+
 // Package bdj runs a disc's BD-J applications. They are Java programs, so they
 // need a Java runtime, which this project does not ship: the server's owner
 // installs any Java 8 or newer they choose, under that Java's own licence, and

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package org.bluray.ui;
 /** The stretch of the video's time an animation runs in; a negative end means until it is stopped. */
 public class FrameAccurateAnimationTimer {

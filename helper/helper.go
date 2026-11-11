@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
+
 // Package helper is WittyBluray's side of running as a helper process: one opened
 // disc and its navigator, answering the server's calls. Video never comes through
 // here: the server reads the disc itself from the extents it is told about.

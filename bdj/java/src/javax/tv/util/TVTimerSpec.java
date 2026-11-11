@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.tv.util;
 /** What a timer should do: a time in milliseconds (absolute, or a delay), whether it repeats, and who to tell. */
 public class TVTimerSpec {

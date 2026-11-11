@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 WittyWilla and contributors
 package javax.tv.graphics;
 public class AlphaColor extends java.awt.Color {
     public AlphaColor(float r, float g, float b, float a) { super(r, g, b, a); }
