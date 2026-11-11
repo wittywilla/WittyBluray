@@ -30,7 +30,7 @@ import (
 )
 
 func main() {
-	h := &session.Host{Open: wittyblurayplayer.Open}
+	h := wittyblurayplayer.NewHost()
 	wittymodule.Main(wittyblurayplayer.Manifest, func(method string, params json.RawMessage) (any, []byte, error) {
 		res, blob, err := h.Handle(method, params)
 		var r *session.RefusalError

@@ -60,6 +60,15 @@ type bluraySession struct {
 	timerAt   time.Time
 	// The viewer's subtitle language is applied once, to the first title.
 	subsApplied bool
+
+	// ranking is the engine's ranking of the disc and guide the same as a window
+	// shows it; both are worked out once (guide.go).
+	ranking *wittybluray.Ranking
+	guide   *Guide
+	// asked is the playlist the viewer asked for by number or from the guide. It
+	// presents as a title, with its chapters and a place to seek to, even when no
+	// title of the disc's index names it.
+	asked *wittybluray.Playlist
 }
 
 // laidOut is a playlist laid out on one timeline.
@@ -134,7 +143,7 @@ func (s *bluraySession) Close() error { return s.disc.Close() }
 
 func (s *bluraySession) Info() Info {
 	in := Info{Kind: "bluray", Label: s.disc.Label, Titles: []TitleInfo{}}
-	if m := s.disc.MainPlaylist(); m != nil {
+	if m := s.mainPlaylist(); m != nil {
 		in.Main = m.Number
 	}
 	nums := make([]int, 0, len(s.disc.Playlists))
@@ -146,7 +155,7 @@ func (s *bluraySession) Info() Info {
 		pl := s.disc.Playlists[n]
 		// Very short playlists are logos and menu backgrounds, not titles.
 		if d := s.disc.PlaylistDuration(pl); d >= 60 || n == in.Main {
-			in.Titles = append(in.Titles, TitleInfo{N: n, Duration: d, Chapters: len(chapterMarks(pl)), Main: n == in.Main})
+			in.Titles = append(in.Titles, TitleInfo{N: n, Duration: d, Chapters: len(pl.Chapters()), Main: n == in.Main})
 		}
 	}
 	if s.disc.BDJ {
@@ -162,15 +171,21 @@ func (s *bluraySession) Start() *Presentation { return s.show(s.nav.Start()) }
 func (s *bluraySession) PlayTitle(ttn, chapter int) *Presentation {
 	pl := s.disc.Playlist(ttn)
 	if pl == nil {
-		pl = s.disc.MainPlaylist()
+		pl = s.mainPlaylist()
 	}
 	if pl == nil {
 		return s.stop("The disc has nothing to play.")
 	}
 	item, t := 0, uint32(0)
-	if marks := chapterMarks(pl); chapter >= 1 && chapter <= len(marks) {
-		item, t = marks[chapter-1].Item, marks[chapter-1].Time
+	if chs := pl.Chapters(); chapter >= 1 && chapter <= len(chs) {
+		item, t = chs[chapter-1].Item, chs[chapter-1].ClipTime
 	}
+	return s.play(pl, item, t)
+}
+
+// play starts a playlist the viewer asked for, at a play item and a time in its clip.
+func (s *bluraySession) play(pl *wittybluray.Playlist, item int, t uint32) *Presentation {
+	s.asked = pl
 	return s.show(s.nav.PlayPlaylist(pl, item, t))
 }
 
@@ -504,7 +519,10 @@ func (s *bluraySession) present(st *wittybluray.Step, rebuild bool) *Presentatio
 	s.step = st
 	p := &Presentation{Serial: s.serial, Reason: st.Reason}
 	var err error
-	if st.Menu || st.Title == 0xffff || st.Title == 0 {
+	if st.Playlist != s.asked {
+		s.asked = nil // the disc has moved on to something of its own
+	}
+	if st.Menu || ((st.Title == 0xffff || st.Title == 0) && s.asked == nil) {
 		if !rebuild {
 			s.menu = nil
 		}
@@ -541,7 +559,7 @@ func (s *bluraySession) presentBDJ(st *wittybluray.Step, rebuild bool) *Presenta
 		}
 	}
 	if pl == nil {
-		pl = s.disc.MainPlaylist()
+		pl = s.mainPlaylist()
 	}
 	if pl == nil {
 		return s.stop(st.Reason)
@@ -592,22 +610,31 @@ func (s *bluraySession) layout(pl *wittybluray.Playlist, only int) *laidOut {
 		base += int64(pi.spn[1]-pi.spn[0]) * 192
 	}
 	out.duration = t
-	for _, m := range chapterMarks(pl) {
-		if pi := out.find(m.Item); pi != nil {
-			out.chapters = append(out.chapters, pi.start+float64(int64(m.Time)-int64(pi.startPTS))/45000)
+	// The engine's chapters: marks that name no play item are left out, a mark
+	// outside its item is moved inside it, and they come in playing order. They are
+	// placed on this timeline, which starts each item at an entry point.
+	for _, c := range pl.Chapters() {
+		pi := out.find(c.Item)
+		if pi == nil {
+			continue
+		}
+		at := pi.start + float64(int64(c.ClipTime)-int64(pi.startPTS))/45000
+		if at < pi.start {
+			at = pi.start
+		}
+		if n := len(out.chapters); n == 0 || at > out.chapters[n-1]+0.001 {
+			out.chapters = append(out.chapters, at)
 		}
 	}
 	return out
 }
 
-func chapterMarks(pl *wittybluray.Playlist) []wittybluray.Mark {
-	var out []wittybluray.Mark
-	for _, m := range pl.Marks {
-		if m.Type == 1 {
-			out = append(out, m)
-		}
+// mainPlaylist is the playlist the ranking picked as the feature, or nil.
+func (s *bluraySession) mainPlaylist() *wittybluray.Playlist {
+	if r := s.rank(); r.Main >= 0 {
+		return s.disc.Playlist(r.Main)
 	}
-	return out
+	return nil
 }
 
 // clipExtents is a stretch of a clip's stream file.
