@@ -25,7 +25,8 @@ Plays Blu-ray images and `BDMV` folders in WittyMediaServer the way a player doe
 - **4K and HDR:** it reads 2160p HEVC streams with their HDR10, HDR10+ and Dolby Vision flags, so a player can choose what to do on an SDR screen.
 - **Subtitles** from the disc's presentation graphics, read in windows so a large film is never scanned whole.
 - **Java (BD-J) menus,** only if you install a Java and turn this on. None is shipped. They run in a default-deny sandbox, and without Java the disc plays its titles.
-- **Finds the feature among decoys.** Every playlist is scored from the disc's unencrypted navigation alone. The score uses distinct versus total time, repeated, shuffled or missing clips, segment spam, how the clips join, chapters, streams, file sizes, and where the disc's HDMV program leads. So the real film is picked among the hundreds of decoy playlists some discs carry, and a TV disc's episodes are listed in order. See [docs/PLAYLIST-HEURISTICS.md](docs/PLAYLIST-HEURISTICS.md).
+- **Finds the feature among decoys.** Every playlist is scored from the disc's unencrypted navigation alone: distinct versus total time; repeated, shuffled or missing clips; fake short clips; how each clip joins the next (the clock carrying on, the clip's packet map, where the clips lie on an image); chapters, streams and file sizes; and where the disc's HDMV program leads, read by following its registers without running it, or what its Java program names, read from its class files. So the real film is picked among the hundreds or thousands of decoy playlists some discs carry, each cut of a film with several is listed, a TV disc's episodes come in order, and the answer comes with its reasons and a confidence. See [docs/PLAYLIST-HEURISTICS.md](docs/PLAYLIST-HEURISTICS.md).
+- **Reads copies that went wrong.** Every length in every file is checked, a damaged part of a file is left out and named, each structure falls back on its `BACKUP` copy when it is missing, unreadable or contradicts the rest of the disc, and playlists, clip information and stream file sizes are checked against each other. A copy with no `index.bdmv` or `MovieObject.bdmv` (a "movie only" copy) plays from its playlists.
 - **Refuses encrypted discs.** AACS-encrypted discs are refused and BD+ is not run. Nothing is decrypted. The server makes its own check as well, whatever a module says.
 - **Tells you what's on a disc.** The `wittybluray` command-line tool reports all of this, simulates the menus and draws menu pages.
 
@@ -51,7 +52,7 @@ An admin adds it from the module store inside WittyMediaServer: **Settings → M
 - [WittyDisc](https://github.com/wittywilla/WittyDisc), which reads the images, and [WittyModule](https://github.com/wittywilla/WittyModule), which is how a server talks to it. Both are built in.
 - No media comes with it.
 
-It's written in Go with no cgo, from the published disc structure. libbluray is optional and only used by a build with the `libbluray` tag, for a diagnostic comparison (see below).
+It's written in Go with no cgo, from the published disc structure, and contains no code from other players. If you have libbluray installed, it can be asked for a second opinion on a disc's playlists (see below); it is never needed.
 
 ## Platforms
 
@@ -97,25 +98,27 @@ go run ./cmd/wittybluray info MY_DISC.iso
 | Command | What it shows |
 |---|---|
 | `wittybluray info <disc>` | Titles, the disc's program, playlists, clips and streams, 3D and HDR flags |
+| `wittybluray rank <disc> [json]` | Which playlist is the feature and why: every playlist scored, the confidence, editions, episodes, chapters, what in the copy disagrees, and libbluray's second opinion when it is installed |
 | `wittybluray playlist <disc> <n>` | Every item, stream and chapter of one playlist |
 | `wittybluray menu <disc> <playlist>` | A playlist's menu: pages, buttons, every command |
 | `wittybluray walk <disc> [button...]` | Simulates inserting the disc, then pressing menu buttons by id |
 | `wittybluray render <disc> <dir>` | The first menu's pages as PNG files |
 | `wittybluray bdj <disc> [seconds [picture.png [key...]]]` | Java titles and what their code needs; with Java, runs them, pressing the keys named |
 
-To use it as a library, `wittybluray.Open` opens an image or folder, and `wittybluray.NewNav` gives a navigator: `Start`, `PressButton`, `PlaylistEnded` and the rest return what to do next. Check `d.Encrypted` first. `d.MainPlaylist()` is the feature. `d.Analyze(wittybluray.RankOptions{})`, `d.RankPlaylists()`, `d.Episodes()` and `d.Explain()` give the whole ranking, with the same shape as WittyDVD's.
+To use it as a library, `wittybluray.Open` opens an image or folder, and `wittybluray.NewNav` gives a navigator: `Start`, `PressButton`, `PlaylistEnded` and the rest return what to do next. Check `d.Encrypted` first. `d.MainPlaylist()` is the feature. `d.Analyze(wittybluray.RankOptions{})`, `d.RankPlaylists()`, `d.Episodes()` and `d.Explain()` give the whole ranking, with the same shape as WittyDVD's; `pl.Chapters()` gives a playlist's chapters on its playing time and `d.Consistency()` where the copy's structures disagree.
 
-### Building with libbluray (optional)
+### libbluray as a second opinion (optional)
 
-The default build is pure Go and needs nothing installed. A build with the `libbluray` tag adds a cross-check: the diagnoser compares libbluray's list of playlists, their lengths, clips, chapters and angles with WittyBluray's. It needs cgo, libbluray and `pkg-config`:
+WittyBluray needs nothing installed, and no libbluray code is in it or shipped with it. If a libbluray shared library is on the machine, the `libbluray` package loads it when asked (`dlopen` or `LoadLibrary` through [purego](https://github.com/ebitengine/purego): no cgo, nothing at build time) and compares its list of playlists, their lengths, chapters and angles, and the title it would play as the feature, with WittyBluray's. Disagreements are listed and lower the ranking's confidence; WittyBluray's own answer is never replaced. `wittybluray rank`, the diagnoser, and the helper's `ranking` call with `shown: true` are what ask.
 
 ```bash
-brew install libbluray pkg-config    # or your system's packages
-go build -tags libbluray ./...
-go test -tags libbluray ./libbluray/
+brew install libbluray        # or your system's package; nothing to rebuild
+go run ./cmd/wittybluray rank MY_DISC.iso
 ```
 
-libbluray is only asked for unencrypted navigation and metadata. `bd_read` is never called, and no key file is given. `LIBAACS_PATH` and `LIBBDPLUS_PATH` are pointed at a path that doesn't exist, so libaacs and libbdplus are never loaded. A disc that is encrypted is refused before libbluray opens it. Without libbluray installed, don't use the tag: `go vet -tags libbluray ./...` only works with cgo off (`CGO_ENABLED=0`), when the stub is used.
+- It is built for 64-bit macOS and Windows always, and for Linux with `-tags libbluray` (still without cgo). The release's Linux program is a static binary that runs on any distribution, and a loader would tie it to the machine's C library; build with the tag for your own machine if you want the comparison there. `-tags nolibbluray` leaves it out everywhere.
+- `WITTYBLURAY_LIBBLURAY=off` turns loading off, and `WITTYBLURAY_LIBBLURAY=/path/to/libbluray.so.2` names the one file to load. `libbluray.Capability()` says what was found.
+- It is never used to decrypt. A disc is only handed to libbluray when its streams are clear and it has no `AACS` and no `BDSVM` folder at all, so libbluray has no reason to load libaacs or libbdplus; `LIBAACS_PATH` and `LIBBDPLUS_PATH` are pointed at a path that doesn't exist besides. No key file is given, and `bd_read` isn't bound at all.
 
 `wittyblurayplayer/` is the same engine as a program of its own for WittyMediaPlayer, with its own `go.mod` and manifest.
 

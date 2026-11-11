@@ -1438,12 +1438,16 @@ func (d *Disc) programSignals(r *Ranking, feats []*feat, byNum map[int]*feat, w 
 		}
 	}
 	refs := map[int]int{}
-	wide := 0
+	wide, cut := 0, 0
+	titleWork := 2 * maxAbsWork // for all the titles together
 	for i, t := range ix.Titles {
 		if t.Object.Kind != ObjectHDMV || i >= 1000 {
 			continue
 		}
-		reach := d.StaticReach(t.Object, false)
+		reach := d.staticReachWithin(t.Object, false, startUnknown, &titleWork)
+		if reach.Incomplete {
+			cut++
+		}
 		if len(reach.Playlists) > maxTitleChoice {
 			wide++
 			continue
@@ -1451,6 +1455,10 @@ func (d *Disc) programSignals(r *Ranking, feats []*feat, byNum map[int]*feat, w 
 		for _, n := range reach.Playlists {
 			refs[n]++
 		}
+	}
+	if cut > 0 {
+		r.Program.Incomplete = true
+		r.Warnings = append(r.Warnings, fmt.Sprintf("The programs of %s are larger than the static reading follows; what they lead to past that point was left out.", pluralWord(cut, "title", "titles")))
 	}
 	if wide > 0 {
 		r.Warnings = append(r.Warnings, fmt.Sprintf("The programs of %s could each play more than %d playlists, chosen by a register: that points at none of them, and they were not counted.", pluralWord(wide, "title", "titles"), maxTitleChoice))

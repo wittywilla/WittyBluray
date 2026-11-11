@@ -487,6 +487,8 @@ func TestAbstractReadingOfPrograms(t *testing.T) {
 			t.Errorf("loop: %+v", r)
 		}
 	}
+	// A long program is read to its end: 124,000 commands that write every
+	// register and compare them all.
 	var long []Command
 	for i := uint32(0); i < 4096; i++ {
 		long = append(long, move(i, i))
@@ -494,12 +496,25 @@ func TestAbstractReadingOfPrograms(t *testing.T) {
 	for i := 0; i < 60000; i++ {
 		long = append(long, add(uint32(i%4096), 1), eq(uint32(i%4096), 7))
 	}
-	long = append(long, play(9))
+	long = append(long, move(0, 0), play(9))
 	d = disc(MovieObject{Commands: long})
 	start := time.Now()
-	r = d.FirstPlayReach()
-	if !r.Incomplete || time.Since(start) > 5*time.Second {
-		t.Errorf("a program past the budget: incomplete %v after %v", r.Incomplete, time.Since(start))
+	if r := d.FirstPlayReach(); r.Incomplete || !slices.Equal(r.Playlists, []int{9}) {
+		t.Errorf("a long program: incomplete %v, playlists %v", r.Incomplete, r.Playlists)
+	}
+	// One made to cost as much as it can (a loop in which every register
+	// keeps taking new values) stops at the budget and says so.
+	var loop []Command
+	for i := uint32(0); i < 4096; i++ {
+		loop = append(loop, add(i, 1))
+	}
+	loop = append(loop, gotoPC(0), play(9))
+	d = disc(MovieObject{Commands: loop})
+	if r := d.FirstPlayReach(); !r.Incomplete {
+		t.Errorf("a program past the budget was read to the end")
+	}
+	if el := time.Since(start); el > 10*time.Second {
+		t.Errorf("reading two large programs took %v", el)
 	}
 }
 

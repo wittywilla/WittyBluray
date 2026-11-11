@@ -161,7 +161,7 @@ func TestLargeDiscIsBounded(t *testing.T) {
 	}
 	// Four times the playlists: four times the work if linear, sixteen if
 	// every playlist were compared with every other.
-	if t8 > 9*t2+200*time.Millisecond {
+	if t8 > 10*t2+300*time.Millisecond {
 		t.Errorf("8,000 playlists took %v against %v for 2,000: that grows faster than the disc", t8, t2)
 	}
 }

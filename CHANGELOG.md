@@ -5,11 +5,22 @@ What changed in WittyBluray, newest first. What changed before it had a reposito
 
 ## Unreleased
 
-- The main feature is chosen by a playlist ranking engine (`RankPlaylists`, `Analyze`, `Explain`, `Episodes`, `DefaultWeights`), shaped like WittyDVD's title ranking. It reads only unencrypted navigation and metadata. It scores obfuscated discs by distinct versus total time, repeated and shuffled segments, missing or empty clips, times outside a clip's range, segment spam, the most natural order (ascending clips, continuity in time and in the clip's packet map), chapters, streams, 3D and angles, `.m2ts` sizes, and where first play or title 1 leads. `MainPlaylist` keeps its signature and uses it. See `docs/PLAYLIST-HEURISTICS.md`.
-- A static reading of `MovieObject.bdmv` (`ObjectTargets`, `StaticReach`, `FirstPlayReach`, `TitleReach`) finds the playlists, objects and titles a program leads to without running it. BD-J discs are flagged and ranked by structure.
-- TV discs: episodes of about the same length (±15 %) are listed in viewing order, with a play-all playlist when there is one.
-- The diagnoser lists the ranked playlists with their reasons and warns about decoys.
-- Optional `libbluray` package, only with `-tags libbluray` and cgo. It cross-checks the playlist list against libbluray's for the diagnoser. It never reads stream content and never loads libaacs or libbdplus. The default build is unchanged and pure Go.
+- The main feature is chosen by a playlist ranking engine (`Analyze`, `RankPlaylists`, `Explain`, `Episodes`, `DefaultWeights`), shaped like WittyDVD's title ranking. It reads only unencrypted navigation and metadata. See `docs/PLAYLIST-HEURISTICS.md`.
+  - Among playlists of the same clips in different orders (playlist obfuscation), the film's order is found from how each clip joins the next: the clock carrying on, the clip's packet map, where the clips lie on an image, and last the clip numbers. Orders that follow on equally well are called ambiguous rather than guessed.
+  - Decoys that repeat clips, shuffle a subset, pad with fake half-second clips, name missing or empty clips or run past a clip's end are told apart; they are grouped into clusters.
+  - Each cut of a film with several (seamless branching) is listed in `Editions`; a TV disc's episodes come in viewing order, with where each starts in the play-all playlist (`PlayAllParts`).
+  - Every answer has its reasons (`Candidate.Evidence`, `Ranking.Why`) and a confidence (`Confidence`, `ConfidenceLabel`).
+  - A ranking no longer compares every playlist with every other: 2,000 playlists open and rank in about 50 ms on a desktop processor.
+- `MovieObject.bdmv` is read statically by abstract interpretation (`ObjectTargets`, `StaticReach`, `FirstPlayReach`, `TitleReach`): registers are followed as sets of constants through arithmetic, comparisons, jumps and calls, with a budget of work, so a playlist chosen by a register is found. `Reach.Certain`, `Reach.Incomplete` and `NavTarget.Alternatives`, `Conditional`, `Dead` are new.
+- BD-J discs: the JAR files' class constants are read for the playlists they name (`BDJStaticHints`, `ClassConstants`). Nothing is run.
+- `Playlist.Chapters()` maps a playlist's entry marks onto its playing time across play items.
+- `Disc.Consistency()` checks playlists, clip information and stream file sizes against each other; a copy cut short is flagged with how much of each clip can play.
+- Parsers: every length is checked (including on 32-bit builds, where an offset could wrap); no room is made from a count a file gives; a damaged stream table, mark table, sub-path, extension block, program table or entry-point map is left out and named in `Playlist.Warnings` or `Clip.Warnings` instead of losing the file. The entry-point map's fine times were read one bit short. Playlists' extension data (3D stream table, extra sub-paths) is read. Play items with the same stream table share one parsed copy, and a disc has a budget of what it may hold in memory.
+- BACKUP: a structure that parses but contradicts the disc (a playlist naming clips that are not there, an index naming movie objects that are not there) is taken from its `BACKUP` copy when that one does not. `Disc.FromBackup` and `Disc.Notes` say what was read from where.
+- A copy with no `index.bdmv` and no `MovieObject.bdmv` (`Disc.MovieOnly`) is no longer reported as damaged. `OpenSource` opens a disc from any `Source`. Small files that UDF keeps inside their file entry are read. `Disc.Meta()` reads the disc library XML.
+- libbluray: the optional cgo binding behind a build tag is replaced by a loader for a libbluray the user has installed, at run time and without cgo (macOS and Windows; Linux with `-tags libbluray`). It is only ever a second opinion (`Ranking.SecondOpinion`), never required, never given a disc that is encrypted or has an AACS or BD+ folder, and cannot read streams. `WITTYBLURAY_LIBBLURAY=off` turns it off.
+- The helper answers `ranking`, `chapters`, `consistency` and `capabilities`; `wittybluray rank <disc>` prints the ranking with its reasons; the diagnoser shows the confidence, the editions and the cross-checks.
+- Tests: a synthetic BDMV generator and UDF 2.50 image writer, every obfuscation pattern ranked blind, properties (adding decoys or renumbering never changes the feature), a fuzzer for each parser.
 - No decryption, as before: encrypted discs are still refused.
 
 - The copy for WittyMediaPlayer (`wittyblurayplayer`) goes to 0.2.0, on module API 3.

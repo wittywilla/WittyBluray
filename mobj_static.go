@@ -59,7 +59,7 @@ func (t NavTarget) IsPlay() bool {
 const (
 	maxReachObjects = 512     // movie objects one reach visits
 	maxAbsValues    = 8       // constants a register is tracked as, before it is "anything"
-	maxAbsWork      = 2 << 20 // units of work one reach may spend
+	maxAbsWork      = 1 << 20 // units of work one reach may spend: commands read and register pages merged
 	maxAbsTargets   = 1 << 16 // targets one reach lists
 )
 
@@ -116,61 +116,105 @@ func (a absVal) equal(b absVal) bool {
 	return true
 }
 
-// absState is the registers at one point of a program.
-type absState struct {
-	def     absVal            // every register not in m
-	m       map[uint32]absVal // general registers written on the way here
-	tainted bool              // a playlist or a called object has run: a menu may have written anything
-	cond    bool              // reached past an undecided comparison
+// regPage is 64 general registers. Pages are never changed once a state
+// holds them, so states share them: copying a state copies 64 pointers, and
+// writing a register copies one page.
+type regPage struct {
+	has uint64 // which registers of the page have been written
+	v   [64]absVal
 }
 
+// absState is the registers at one point of a program.
+type absState struct {
+	def     absVal       // every register not written on the way here
+	pages   [64]*regPage // the 4,096 general registers; nil = none written
+	tainted bool         // a playlist or a called object has run: a menu may have written anything
+	cond    bool         // reached past an undecided comparison
+}
+
+func newAbsState(def absVal) *absState { return &absState{def: def} }
+
 func (s *absState) get(reg uint32) absVal {
-	if v, ok := s.m[reg]; ok {
-		return v
+	if p := s.pages[reg>>6&63]; p != nil && p.has&(1<<(reg&63)) != 0 {
+		return p.v[reg&63]
 	}
 	return s.def
 }
 
 func (s *absState) clone() *absState {
-	c := &absState{def: s.def, tainted: s.tainted, cond: s.cond, m: make(map[uint32]absVal, len(s.m)+1)}
-	for k, v := range s.m {
-		c.m[k] = v
-	}
-	return c
+	c := *s
+	return &c
 }
 
+// set returns the state with one register written; s is unchanged.
 func (s *absState) set(reg uint32, v absVal) *absState {
-	c := s.clone()
-	c.m[reg] = v
-	return c
+	c := *s
+	p := &regPage{}
+	if old := s.pages[reg>>6&63]; old != nil {
+		*p = *old
+	}
+	p.has |= 1 << (reg & 63)
+	p.v[reg&63] = v
+	c.pages[reg>>6&63] = p
+	return &c
 }
 
-// join merges b into s and says whether s changed.
-func (s *absState) join(b *absState) bool {
-	changed := false
+// join merges b into s, says whether s changed, and how many pages it had
+// to go through (the cost of the merge).
+func (s *absState) join(b *absState) (changed bool, cost int) {
 	if b.tainted && !s.tainted {
 		s.tainted, changed = true, true
 	}
 	if b.cond && !s.cond {
 		s.cond, changed = true, true
 	}
-	for k, bv := range b.m {
-		old := s.get(k)
-		if nv := old.join(bv); !nv.equal(old) {
-			s.m[k], changed = nv, true
+	sameDef := s.def.equal(b.def)
+	for i := range s.pages {
+		sp, bp := s.pages[i], b.pages[i]
+		if sp == bp && (sameDef || sp == nil) {
+			continue // the same page read against the same default
 		}
-	}
-	for k, sv := range s.m {
-		if _, ok := b.m[k]; !ok {
-			if nv := sv.join(b.def); !nv.equal(sv) {
-				s.m[k], changed = nv, true
+		cost++
+		var has uint64
+		if sp != nil {
+			has |= sp.has
+		}
+		if bp != nil {
+			has |= bp.has
+		}
+		var np *regPage
+		for j := uint32(0); j < 64; j++ {
+			if has&(1<<j) == 0 {
+				continue
 			}
+			reg := uint32(i)<<6 | j
+			old := s.get(reg)
+			nv := old.join(b.get(reg))
+			if nv.equal(old) && sp != nil && sp.has&(1<<j) != 0 {
+				continue
+			}
+			if !nv.equal(old) {
+				changed = true
+			}
+			if np == nil {
+				np = &regPage{}
+				if sp != nil {
+					*np = *sp
+				}
+			}
+			np.has |= 1 << j
+			np.v[j] = nv
+		}
+		if np != nil {
+			s.pages[i] = np
 		}
 	}
-	if nd := s.def.join(b.def); !nd.equal(s.def) {
-		s.def, changed = nd, true
+	if !sameDef {
+		if nd := s.def.join(b.def); !nd.equal(s.def) {
+			s.def, changed = nd, true
+		}
 	}
-	return changed
+	return changed, cost
 }
 
 // operandVal is what an operand may be: an immediate, a general register,
@@ -320,8 +364,14 @@ func absRun(m MovieObject, index int, entry *absState, work *int, passive func(p
 		}
 		if in[pc] == nil {
 			in[pc] = st.clone()
-		} else if !in[pc].join(st) {
-			return
+		} else {
+			// Merging a page compares and may copy 64 registers: far more
+			// than reading a command.
+			changed, pages := in[pc].join(st)
+			*work -= 16 * pages
+			if !changed {
+				return
+			}
 		}
 		if !queued[pc] {
 			queued[pc] = true
@@ -376,7 +426,7 @@ func absRun(m MovieObject, index int, entry *absState, work *int, passive func(p
 		pc := heap.Pop(&h).(int)
 		queued[pc] = false
 		st := in[pc]
-		if *work -= 1 + len(st.m)/8; *work < 0 {
+		if *work--; *work < 0 {
 			break
 		}
 		ins := Decode(m.Commands[pc])
@@ -473,7 +523,7 @@ func absRun(m MovieObject, index int, entry *absState, work *int, passive func(p
 				a, b := st.get(ins.Dst), st.operandVal(ins.Src, ins.ImmSrc)
 				next := st.set(ins.Dst, absArith(ins.Opt, a, b))
 				if ins.Opt == 2 && !ins.ImmSrc && ins.Src < 4096 { // SWAP writes both
-					next.m[ins.Src] = a
+					next = next.set(ins.Src, a)
 				}
 				flow(pc+1, next)
 				continue
@@ -528,7 +578,7 @@ func absRun(m MovieObject, index int, entry *absState, work *int, passive func(p
 // told. Commands that no path reaches are listed with Dead set.
 func ObjectTargets(m MovieObject, index int) []NavTarget {
 	work := maxAbsWork
-	events, _ := absRun(m, index, &absState{def: absTop, m: map[uint32]absVal{}}, &work, nil)
+	events, _ := absRun(m, index, newAbsState(absTop), &work, nil)
 	out := make([]NavTarget, 0, len(events))
 	for _, e := range events {
 		out = append(out, e.t)
@@ -573,11 +623,23 @@ func (d *Disc) StaticReach(o IndexObject, followTitles bool) Reach {
 }
 
 func (d *Disc) staticReach(o IndexObject, followTitles bool, start reachStart) Reach {
+	work := maxAbsWork
+	return d.staticReachWithin(o, followTitles, start, &work)
+}
+
+// staticReachWithin is staticReach spending from a budget of work that the
+// caller may share between several reaches.
+func (d *Disc) staticReachWithin(o IndexObject, followTitles bool, start reachStart, budget *int) Reach {
 	var r Reach
 	if d == nil {
 		return r
 	}
-	work := maxAbsWork
+	if *budget <= 0 {
+		r.Incomplete = true
+		return r
+	}
+	work := min(*budget, maxAbsWork)
+	defer func(had int) { *budget -= had - max(work, 0) }(work)
 	entries := map[int]*absState{}
 	seenPL := map[int]bool{}
 	certain := map[int]bool{}
@@ -608,8 +670,10 @@ func (d *Disc) staticReach(o IndexObject, followTitles bool, start reachStart) R
 			entry = st.clone()
 			entries[n] = entry
 			r.Objects = append(r.Objects, n)
-		case !entry.join(st):
-			return // already read with registers that cover these
+		default:
+			if changed, _ := entry.join(st); !changed {
+				return // already read with registers that cover these
+			}
 		}
 		if visits++; visits > 4*maxReachObjects || work < 0 {
 			r.Incomplete = true
@@ -657,7 +721,7 @@ func (d *Disc) staticReach(o IndexObject, followTitles bool, start reachStart) R
 			}
 		}
 	}
-	st := &absState{def: absTop, m: map[uint32]absVal{}}
+	st := newAbsState(absTop)
 	if start == startZero {
 		st.def = absZero
 	}
