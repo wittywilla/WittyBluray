@@ -48,8 +48,13 @@ func check(ctx context.Context, j *Job, src *discSource, o DiscOptions, res *Res
 		main = d.MainPlaylist()
 		blurayDamaged(j, d)
 		blurayStructure(j, d, main)
+		blurayRanking(j, d)
 		blurayClips(j, d, main)
 	})
+	if libblurayCrossCheck != nil {
+		j.Step("Comparing with libbluray", 0.16)
+		j.Engine("comparing with libbluray", func() { libblurayCrossCheck(j, d) })
+	}
 
 	if d.BDJ {
 		j.Step("Looking at the disc's Java programs", 0.17)
@@ -219,6 +224,67 @@ func blurayStructure(j *Job, d *wittybluray.Disc, main *wittybluray.Playlist) {
 	j.Add(Finding{Severity: SevInfo, Title: "What's on this Blu-ray", What: what, Details: det, More: len(nums) - shown})
 	if main == nil {
 		j.Add(Finding{Severity: SevWarn, Title: "No main feature can be told apart", What: "No playlist on this disc reads as a whole film: each one names a clip that's missing, or runs past a clip's end."})
+	}
+}
+
+// blurayRanking lists the ranked playlists with their reasons, and warns
+// about decoys. Only the disc's unencrypted structure is read.
+func blurayRanking(j *Job, d *wittybluray.Disc) {
+	r := d.Analyze(wittybluray.RankOptions{})
+	if len(r.Candidates) == 0 {
+		return
+	}
+	var det []string
+	shown := 0
+	for _, c := range r.Candidates {
+		if shown >= 8 {
+			break
+		}
+		shown++
+		line := fmt.Sprintf("Playlist %05d: %s, score %.1f, %s", c.PlaylistNum, hms(c.Duration), c.Score, c.Class)
+		if fl := c.Flags.String(); fl != "" {
+			line += " (" + strings.ReplaceAll(fl, ",", ", ") + ")"
+		}
+		det = append(det, line)
+		for _, why := range c.Reasons {
+			det = append(det, "    "+why)
+		}
+	}
+	what := "How the engine chose the main feature: every playlist is scored from the disc's navigation and clip information alone."
+	if r.BDJ {
+		what += " The disc starts with a Java program, which isn't read here, so the playlists' structure decides."
+	}
+	if len(r.Episodes) > 0 {
+		var eps []string
+		for _, e := range r.Episodes {
+			eps = append(eps, fmt.Sprintf("%05d", e.Playlist))
+		}
+		det = append(det, "Episodes in order: "+strings.Join(eps, ", "))
+	}
+	j.Add(Finding{Severity: SevInfo, Title: "Ranked playlists", What: what, Details: det, More: len(r.Candidates) - shown})
+	if len(r.Decoys) > 0 {
+		var list []string
+		for _, n := range r.Decoys {
+			c := r.Candidate(n)
+			why := ""
+			if fl := c.Flags &^ (wittybluray.FlagDecoy | wittybluray.FlagMain); fl != 0 {
+				why = ": " + strings.ReplaceAll(fl.String(), ",", ", ")
+			}
+			list = append(list, fmt.Sprintf("Playlist %05d%s", n, why))
+		}
+		list, more := clip(list, len(list), 50)
+		var warn []string
+		for _, w := range r.Warnings {
+			if strings.Contains(w, "decoy") {
+				warn = append(warn, w)
+			}
+		}
+		j.Add(Finding{Severity: SevWarn, Title: "This Blu-ray has decoy playlists", What: strings.Join(warn, " "), Fix: "Nothing to do: the decoys are skipped when the disc plays. If the wrong film plays, pick another playlist from the disc's page.", Details: list, More: more})
+	}
+	for _, w := range r.Warnings {
+		if strings.HasPrefix(w, "Close call") {
+			j.Add(Finding{Severity: SevInfo, Title: "The main feature was a close call", What: w})
+		}
 	}
 }
 

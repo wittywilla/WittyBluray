@@ -74,6 +74,11 @@ type Disc struct {
 	layout     layout
 	soundsOnce sync.Once
 	sounds     *Sounds
+	// The stream files' sizes and the main playlist, worked out once.
+	sizesOnce sync.Once
+	sizes     map[string]int64
+	mainOnce  sync.Once
+	main      *Playlist
 }
 
 // layout is where a disc keeps its files. Blu-ray discs use long names under
@@ -455,149 +460,22 @@ func (d *Disc) PlaylistDuration(pl *Playlist) float64 {
 	return t
 }
 
-// MainPlaylist finds the feature. Longest wins, with care, because longest
-// is what some discs try to defeat: copy-protection schemes add hundreds of
-// playlists that loop a clip, name clips that are not there, run past a
-// clip's end, or shuffle the real film's clips into nonsense. So a playlist
-// counts each stretch of a clip only once and is out if it reads what cannot
-// be read. Among those near the longest, the one the disc's program names
-// wins, then the one whose clips follow on from each other in time (a
-// shuffled copy has the same length but its seams do not meet), then the one
-// with chapters. A disc with no video at all (a music disc) picks by sound.
+// MainPlaylist finds the feature with the playlist ranking engine
+// (heuristics.go): distinct, readable video counts most, because longest is
+// what some discs try to defeat: copy-protection schemes add hundreds of
+// playlists that loop a clip, name clips that are not there or are empty,
+// run past a clip's end, or shuffle the real film's clips into nonsense.
+// Those are scored down or ruled out; among the rest the one the disc's
+// program leads to, the one whose clips follow on from each other, and the
+// one with even chapters gain. A disc with no video at all (a music disc)
+// picks by sound. The answer is worked out once per opened disc.
 func (d *Disc) MainPlaylist() *Playlist {
-	named := d.programPlaylists()
-	type cand struct {
-		pl     *Playlist
-		length float64
-		named  bool
-		seams  int
-		marks  int
-	}
-	pick := func(video bool) *Playlist {
-		var all []cand
-		longest := 0.0
-		for _, pl := range d.sortedPlaylists() {
-			if len(pl.Items) == 0 || (video && len(pl.Items[0].Video) == 0) || (!video && len(pl.Items[0].Audio) == 0) {
-				continue
-			}
-			l, ok := d.distinctDuration(pl)
-			if !ok || l <= 0 {
-				continue
-			}
-			c := cand{pl: pl, length: l, named: named[pl.Number], seams: seamsMet(pl)}
-			for _, m := range pl.Marks {
-				if m.Type == 1 {
-					c.marks++
-				}
-			}
-			all = append(all, c)
-			if l > longest {
-				longest = l
-			}
+	d.mainOnce.Do(func() {
+		if r := d.Analyze(RankOptions{}); r.Main >= 0 {
+			d.main = d.Playlists[r.Main]
 		}
-		var best *cand
-		for i := range all {
-			c := &all[i]
-			if c.length < longest*0.9 {
-				continue
-			}
-			switch {
-			case best == nil:
-				best = c
-			case c.named != best.named:
-				if c.named {
-					best = c
-				}
-			case c.seams != best.seams:
-				if c.seams > best.seams {
-					best = c
-				}
-			case (c.marks > 1) != (best.marks > 1):
-				if c.marks > 1 {
-					best = c
-				}
-			case c.length > best.length*1.001:
-				best = c
-			}
-		}
-		if best == nil {
-			return nil
-		}
-		return best.pl
-	}
-	if pl := pick(true); pl != nil {
-		return pl
-	}
-	return pick(false)
-}
-
-// distinctDuration is a playlist's length with repeats counted once; ok is
-// false when it names a clip the disc lacks or runs past the end of one (when
-// the disc has any clip information to judge by).
-func (d *Disc) distinctDuration(pl *Playlist) (float64, bool) {
-	seen := map[string]bool{}
-	var t float64
-	for i := range pl.Items {
-		it := &pl.Items[i]
-		if len(d.Clips) > 0 {
-			c := d.Clips[it.Clip]
-			if c == nil {
-				return 0, false
-			}
-			if end := c.EndPTS(it.STCID); end > 0 && it.Out > end+45000 {
-				return 0, false
-			}
-		}
-		k := fmt.Sprintf("%s/%d/%d", it.Clip, it.In, it.Out)
-		if !seen[k] {
-			seen[k] = true
-			t += it.Duration()
-		}
-	}
-	return t, true
-}
-
-// seamsMet counts the joins where the next item starts within a second of
-// where the last one ended, as they do when one encoded film is cut up.
-func seamsMet(pl *Playlist) int {
-	n := 0
-	for i := 1; i < len(pl.Items); i++ {
-		a, b := pl.Items[i-1].Out, pl.Items[i].In
-		if a > b && a-b < 45000 || b >= a && b-a < 45000 {
-			n++
-		}
-	}
-	return n
-}
-
-// programPlaylists lists the playlists the disc's program names outright:
-// the movie objects of its titles, and the first playlist of its BD-J titles.
-func (d *Disc) programPlaylists() map[int]bool {
-	out := map[int]bool{}
-	if d.Index == nil {
-		return out
-	}
-	for _, t := range d.Index.Titles {
-		switch t.Object.Kind {
-		case ObjectHDMV:
-			if t.Object.MovieObject >= len(d.MovieObjects) {
-				continue
-			}
-			for _, c := range d.MovieObjects[t.Object.MovieObject].Commands {
-				in := Decode(c)
-				if in.Group == GroupBranch && in.Sub == 2 && in.Opt <= 2 && in.ImmDst {
-					out[int(in.Dst)] = true
-				}
-			}
-		case ObjectBDJ:
-			if o, err := d.BDJObject(t.Object.BDJName); err == nil {
-				for _, p := range o.Playlists {
-					out[p] = true
-				}
-			}
-		}
-	}
-	return out
+	})
+	return d.main
 }
 
 func structureNumber(name string, exts []string) (int, bool) {

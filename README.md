@@ -25,6 +25,7 @@ Plays Blu-ray images and `BDMV` folders in WittyMediaServer the way a player doe
 - **4K and HDR:** it reads 2160p HEVC streams with their HDR10, HDR10+ and Dolby Vision flags, so a player can choose what to do on an SDR screen.
 - **Subtitles** from the disc's presentation graphics, read in windows so a large film is never scanned whole.
 - **Java (BD-J) menus,** only if you install a Java and turn this on. None is shipped. They run in a default-deny sandbox, and without Java the disc plays its titles.
+- **Finds the feature among decoys.** Every playlist is scored from the disc's unencrypted navigation alone. The score uses distinct versus total time, repeated, shuffled or missing clips, segment spam, how the clips join, chapters, streams, file sizes, and where the disc's HDMV program leads. So the real film is picked among the hundreds of decoy playlists some discs carry, and a TV disc's episodes are listed in order. See [docs/PLAYLIST-HEURISTICS.md](docs/PLAYLIST-HEURISTICS.md).
 - **Refuses encrypted discs.** AACS-encrypted discs are refused and BD+ is not run. Nothing is decrypted. The server makes its own check as well, whatever a module says.
 - **Tells you what's on a disc.** The `wittybluray` command-line tool reports all of this, simulates the menus and draws menu pages.
 
@@ -50,7 +51,7 @@ An admin adds it from the module store inside WittyMediaServer: **Settings → M
 - [WittyDisc](https://github.com/wittywilla/WittyDisc), which reads the images, and [WittyModule](https://github.com/wittywilla/WittyModule), which is how a server talks to it. Both are built in.
 - No media comes with it.
 
-It's written in Go with no cgo, from the published disc structure.
+It's written in Go with no cgo, from the published disc structure. libbluray is optional and only used by a build with the `libbluray` tag, for a diagnostic comparison (see below).
 
 ## Platforms
 
@@ -102,7 +103,19 @@ go run ./cmd/wittybluray info MY_DISC.iso
 | `wittybluray render <disc> <dir>` | The first menu's pages as PNG files |
 | `wittybluray bdj <disc> [seconds [picture.png [key...]]]` | Java titles and what their code needs; with Java, runs them, pressing the keys named |
 
-To use it as a library, `wittybluray.Open` opens an image or folder, and `wittybluray.NewNav` gives a navigator: `Start`, `PressButton`, `PlaylistEnded` and the rest return what to do next. Check `d.Encrypted` first.
+To use it as a library, `wittybluray.Open` opens an image or folder, and `wittybluray.NewNav` gives a navigator: `Start`, `PressButton`, `PlaylistEnded` and the rest return what to do next. Check `d.Encrypted` first. `d.MainPlaylist()` is the feature. `d.Analyze(wittybluray.RankOptions{})`, `d.RankPlaylists()`, `d.Episodes()` and `d.Explain()` give the whole ranking, with the same shape as WittyDVD's.
+
+### Building with libbluray (optional)
+
+The default build is pure Go and needs nothing installed. A build with the `libbluray` tag adds a cross-check: the diagnoser compares libbluray's list of playlists, their lengths, clips, chapters and angles with WittyBluray's. It needs cgo, libbluray and `pkg-config`:
+
+```bash
+brew install libbluray pkg-config    # or your system's packages
+go build -tags libbluray ./...
+go test -tags libbluray ./libbluray/
+```
+
+libbluray is only asked for unencrypted navigation and metadata. `bd_read` is never called, and no key file is given. `LIBAACS_PATH` and `LIBBDPLUS_PATH` are pointed at a path that doesn't exist, so libaacs and libbdplus are never loaded. A disc that is encrypted is refused before libbluray opens it. Without libbluray installed, don't use the tag: `go vet -tags libbluray ./...` only works with cgo off (`CGO_ENABLED=0`), when the stub is used.
 
 `wittyblurayplayer/` is the same engine as a program of its own for WittyMediaPlayer, with its own `go.mod` and manifest.
 
