@@ -101,9 +101,12 @@ type Helper struct {
 // Ranked answers "ranking": the playlists scored and explained. Note says
 // why no second opinion was taken, when one was asked for.
 type Ranked struct {
-	Ranking   *wittybluray.Ranking `json:"ranking"`
-	Note      string               `json:"note,omitempty"`
-	Libbluray libbluray.Cap        `json:"libbluray"`
+	Ranking *wittybluray.Ranking `json:"ranking"`
+	// Total is how many playlists were ranked; Ranking.Candidates holds the
+	// best of them, up to the call's limit.
+	Total     int           `json:"total"`
+	Note      string        `json:"note,omitempty"`
+	Libbluray libbluray.Cap `json:"libbluray"`
 }
 
 // ChapterList answers "chapters": a playlist's chapters on its playing time.
@@ -167,11 +170,24 @@ func (h *Helper) Handle(method string, raw json.RawMessage) (any, []byte, error)
 	case "ranking":
 		// The whole ranking with its reasons and confidence. With Shown, a
 		// libbluray the user has installed is asked for a second opinion.
+		// Limit is how many candidates to send, best first (0 = 100): a disc
+		// with thousands of decoys has megabytes of reasons.
+		out := Ranked{}
 		if p.Shown {
-			r, note := libbluray.Analyze(d, wittybluray.RankOptions{})
-			return Ranked{Ranking: r, Note: note, Libbluray: libbluray.Capability()}, nil, nil
+			out.Ranking, out.Note = libbluray.Analyze(d, wittybluray.RankOptions{})
+			out.Libbluray = libbluray.Capability()
+		} else {
+			out.Ranking = d.Analyze(wittybluray.RankOptions{})
 		}
-		return Ranked{Ranking: d.Analyze(wittybluray.RankOptions{})}, nil, nil
+		limit := int(p.Limit)
+		if limit <= 0 {
+			limit = 100
+		}
+		out.Total = len(out.Ranking.Candidates)
+		if out.Total > limit {
+			out.Ranking.Candidates = out.Ranking.Candidates[:limit]
+		}
+		return out, nil, nil
 	case "chapters":
 		pl := d.Playlist(p.N)
 		if pl == nil {

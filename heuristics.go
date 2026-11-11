@@ -495,10 +495,9 @@ type feat struct {
 
 // rankCtx is what ranking knows about the disc besides its playlists.
 type rankCtx struct {
-	d       *Disc
-	sizes   map[string]int64
-	rankOf  map[string]int // clips in the order they lie on the disc; nil when unknown
-	hasSize bool
+	d      *Disc
+	sizes  map[string]int64
+	rankOf map[string]int // clips in the order they lie on the disc; nil when unknown
 }
 
 func fmtDur(sec float64) string {
@@ -645,7 +644,6 @@ func (d *Disc) Analyze(opt RankOptions) *Ranking {
 	if ctx.sizes == nil {
 		ctx.sizes = d.clipFileSizes()
 	}
-	ctx.hasSize = len(ctx.sizes) > 0
 	switch {
 	case opt.ClipOffsets != nil:
 		ctx.rankOf = clipOrder(opt.ClipOffsets)

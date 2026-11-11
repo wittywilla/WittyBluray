@@ -87,6 +87,9 @@ func TestHelperRankingCalls(t *testing.T) {
 		if int(r["main"].(float64)) != feature || r["confidenceLabel"] == "" || len(r["why"].([]any)) == 0 {
 			t.Errorf("ranking: main %v, confidence %v, why %v", r["main"], r["confidenceLabel"], r["why"])
 		}
+		if got["total"].(float64) != 15 {
+			t.Errorf("total %v", got["total"])
+		}
 		first := r["candidates"].([]any)[0].(map[string]any)
 		if len(first["evidence"].([]any)) == 0 || !strings.Contains(strings.Join(toStrings(first["flags"]), ","), "main") {
 			t.Errorf("first candidate: %v", first)
@@ -95,8 +98,11 @@ func TestHelperRankingCalls(t *testing.T) {
 	if ch := call("chapters", map[string]any{"n": feature})["chapters"].([]any); len(ch) < 2 || ch[1].(map[string]any)["startSec"].(float64) != 600 {
 		t.Errorf("chapters: %v", ch)
 	}
-	if c := call("consistency", map[string]any{}); c["issues"] == nil && c["notes"] == nil {
-		t.Logf("consistency: %v", c)
+	if got := call("ranking", map[string]any{"limit": 3}); len(got["ranking"].(map[string]any)["candidates"].([]any)) != 3 || got["total"].(float64) != 15 {
+		t.Errorf("a limit of 3 gave %v candidates of %v", len(got["ranking"].(map[string]any)["candidates"].([]any)), got["total"])
+	}
+	if c := call("consistency", map[string]any{}); c["issues"] == nil {
+		t.Errorf("consistency: %v", c)
 	}
 }
 

@@ -89,6 +89,7 @@ type Disc struct {
 	MovieOnly bool
 
 	layout     layout
+	loading    bool
 	stn        *stnCache
 	offsets    map[string]int64
 	sameFile   bool
@@ -241,7 +242,9 @@ func readStructure[T any](d *Disc, rel string, parse func([]byte) (T, error)) (T
 		}
 	}
 	if v, berr := readBackup(d, rel, parse); berr == nil {
-		d.FromBackup = append(d.FromBackup, rel)
+		if d.loading { // later reads (a BD-J object, on any goroutine) leave the disc as it is
+			d.FromBackup = append(d.FromBackup, rel)
+		}
 		return v, nil
 	}
 	return zero, err
@@ -299,6 +302,8 @@ func (d *Disc) load() error {
 		d.Label = filepath.Base(s.dir)
 	}
 	d.stn = newSTNCache()
+	d.loading = true
+	defer func() { d.loading = false }()
 	var ixErr, moErr error
 	if d.Index, ixErr = readStructure(d, d.layout.index, ParseIndex); ixErr != nil {
 		// No readable program: the streams can still be played from their

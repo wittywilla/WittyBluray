@@ -48,7 +48,7 @@ A `Candidate` has `Score`, `Class`, `Flags` and `Reasons` as before, the facts (
 
 Classes are `main`, `playAll`, `episode`, `decoy`, `duplicate`, `alternate`, `intro`, `stub` (under 15 s), `trailer` (under 4 min), `featurette` (under 45 min) and `extra`.
 
-The helper answers the same through `ranking` (`shown: true` asks an installed libbluray too), `chapters`, `consistency` and `capabilities`. `wittybluray rank <disc> [json]` prints it.
+The helper answers the same through `ranking` (`shown: true` asks an installed libbluray too; `limit` is how many candidates come back, best first, 100 unless given, with `total` saying how many there were), `chapters` (`n`: the playlist), `consistency` (with `fromBackup`, `notes`, `damaged`, `movieOnly` and the disc library `meta`) and `capabilities` (which needs no disc open). These are new calls; no existing call changed. `wittybluray rank <disc> [json]` prints it.
 
 ## Which order is the film's
 
