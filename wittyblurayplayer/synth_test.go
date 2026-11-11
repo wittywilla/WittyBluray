@@ -177,6 +177,14 @@ func TestGuideAndFeatureOfEverySyntheticDisc(t *testing.T) {
 				t.Errorf("play all %+v, want playlist %d", g.PlayAll, d.PlayAll)
 			}
 
+			// The disc starts with something to watch: what its program plays, or
+			// the film when its program plays nothing.
+			if first := s.Start(); first.Kind == "stop" {
+				t.Errorf("the disc starts with nothing: %q", first.Reason)
+			} else if first.Kind == "title" && first.Reason != "" && first.Title.TTN != d.Main {
+				t.Errorf("with no program to start it, the disc starts playlist %d, want %d", first.Title.TTN, d.Main)
+			}
+
 			p, err := s.Choose("feature")
 			if err != nil {
 				t.Fatal(err)
@@ -231,6 +239,24 @@ func equal(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// A disc whose own program plays nothing starts with the film, and says so.
+func TestStartsTheFilmWhenTheProgramPlaysNothing(t *testing.T) {
+	for _, name := range []string{"simple", "tv", "playall"} {
+		s, d := openSynth(t, name)
+		if st := s.nav.Start(); st.Kind != "stop" {
+			t.Fatalf("%s: the scenario's program plays something now (%v); pick another disc for this test", name, st.Kind)
+		}
+		p := s.Start()
+		if p.Kind != "title" || p.Title.TTN != d.Main || p.Reason == "" || !near(p.Title.Duration, d.FeatureSec) {
+			t.Errorf("%s starts as %s %+v (%q), want playlist %d", name, p.Kind, p.Title, p.Reason, d.Main)
+		}
+		// When the film is over there is nothing more, and that is said once.
+		if e := s.Do(Action{Type: "ended"}); e.Kind != "stop" {
+			t.Errorf("%s: after the film: %s", name, e.Kind)
+		}
+	}
 }
 
 // A film with two cuts: each is a version, and each plays as its own playlist.

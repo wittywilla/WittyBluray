@@ -164,7 +164,24 @@ func (s *bluraySession) Info() Info {
 	return in
 }
 
-func (s *bluraySession) Start() *Presentation { return s.show(s.nav.Start()) }
+// Start begins the disc as its own program does. A disc whose program plays nothing (a
+// copy of the film without one, or a first play that ends at once) starts with the
+// playlist the engine picked as the film, rather than with an empty screen.
+func (s *bluraySession) Start() *Presentation {
+	p := s.show(s.nav.Start())
+	if p == nil || p.Kind != "stop" || p.Protected {
+		return p
+	}
+	main := s.mainPlaylist()
+	if main == nil {
+		return p
+	}
+	if q := s.play(main, 0, 0); q != nil && q.Kind != "stop" {
+		q.Reason = "This disc starts nothing by itself. Playing the main feature."
+		return q
+	}
+	return p
+}
 
 // PlayTitle plays a playlist (ttn is its number; 0 = the main feature) from a
 // chapter (1-based; 0 = the start).

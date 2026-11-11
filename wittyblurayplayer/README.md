@@ -20,3 +20,6 @@ is left out, and one outside its item is moved inside it.
 
 The ranking never asks another reader of the disc for a second opinion here: the engine's optional comparison with a
 `libbluray` the viewer has installed stays off.
+
+A disc whose own program plays nothing when it starts (a copy of the film without its program, or a first play that
+ends at once) starts with the playlist the engine picked, and says so, rather than with an empty screen.
