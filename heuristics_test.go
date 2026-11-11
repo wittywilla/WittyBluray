@@ -294,7 +294,11 @@ func FuzzMovieObject(f *testing.F) {
 			return
 		}
 		for i, o := range objs {
-			if ts := ObjectTargets(o, i); len(ts) > len(o.Commands) {
+			if i >= 32 {
+				break
+			}
+			// A register may hold up to maxAbsValues constants, each a target.
+			if ts := ObjectTargets(o, i); len(ts) > maxAbsValues*len(o.Commands) {
 				t.Fatalf("%d targets from %d commands", len(ts), len(o.Commands))
 			}
 		}

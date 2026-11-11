@@ -190,23 +190,23 @@ func (s *absState) operandVal(v uint32, imm bool) absVal {
 	return s.get(v)
 }
 
-// absArith applies a SET command to every pair of values; ok is false when
-// the result is not a small set.
+// absArith applies a SET command to every pair of values; the result is
+// "anything" when it is not a small set.
 func absArith(opt int, a, b absVal) absVal {
 	if opt == 1 { // MOVE
 		return b
 	}
-	if a.top || b.top || len(a.vals)*len(b.vals) > 64 {
-		return absTop
-	}
-	if opt == 8 { // RND: 1..n
-		if len(b.vals) == 1 && b.vals[0] >= 1 && b.vals[0] <= maxAbsValues {
+	if opt == 8 { // RND: 1..n, whatever the register held
+		if !b.top && len(b.vals) == 1 && b.vals[0] >= 1 && b.vals[0] <= maxAbsValues {
 			out := absVal{}
 			for v := uint32(1); v <= b.vals[0]; v++ {
 				out = out.with(v)
 			}
 			return out
 		}
+		return absTop
+	}
+	if a.top || b.top || len(a.vals)*len(b.vals) > 64 {
 		return absTop
 	}
 	out := absVal{}
