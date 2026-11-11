@@ -206,7 +206,7 @@ func writeUDFImage(t testing.TB, path, label string, files []*udfFile, opt udfOp
 	// The metadata partition is built in memory first: its size decides
 	// where file data may start. File data goes after room for it and its
 	// mirror; 4,096 blocks hold more entries than any test disc has.
-	const metaRoom = 4096
+	const metaRoom = 16384
 	w.next = 2 + 2*metaRoom
 	_, fsd := w.metaBlock()
 	udfTag(fsd, 256, 0)
@@ -448,5 +448,25 @@ func TestUDFImageOfUltraHDSize(t *testing.T) {
 	}
 	if d.Encrypted || len(d.Consistency()) != 0 {
 		t.Errorf("encrypted %v, inconsistencies %+v", d.Encrypted, d.Consistency())
+	}
+}
+
+// Opening a real image of a disc with 2,000 playlists: the UDF directory,
+// 4,000 structure files and their backups, and the ranking.
+func BenchmarkOpenImage2000Playlists(b *testing.B) {
+	s, feature := bigDisc(2000)
+	img := filepath.Join(b.TempDir(), "big.iso")
+	writeUDFImage(b, img, "BIG", s.udfFiles(true), udfOptions{})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		d, err := Open(img)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if mp := d.MainPlaylist(); mp == nil || mp.Number != feature {
+			b.Fatalf("main %v, want %d", mp, feature)
+		}
+		d.Close()
 	}
 }

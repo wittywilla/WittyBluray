@@ -250,7 +250,7 @@ func (pl *Playlist) SubClip(s Stream) string {
 const (
 	maxPlayItems       = 1000
 	maxMarks           = 10000
-	maxStreamsPerItem  = 600
+	maxStreamsPerItem  = 700 // the format's own limits add up to 640
 	maxPlaylistStreams = 1 << 16
 )
 

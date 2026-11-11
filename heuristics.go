@@ -590,7 +590,8 @@ func (d *Disc) clipFileSizes() map[string]int64 {
 }
 
 // clipOrder ranks clips by where they lie on the disc. nil when fewer than
-// two positions are known or they are all the same.
+// two positions are known, they are all the same, or they are simply in the
+// order of the clips' names.
 func clipOrder(at map[string]int64) map[string]int {
 	if len(at) < 2 {
 		return nil
@@ -606,6 +607,17 @@ func clipOrder(at map[string]int64) map[string]int {
 		return names[i] < names[j]
 	})
 	if at[names[0]] == at[names[len(names)-1]] {
+		return nil
+	}
+	// Clips that lie in the order of their names say nothing the names do
+	// not: an image rebuilt from a folder of files is laid out that way
+	// whatever order the film plays in. Only a layout that departs from
+	// the names is the disc's own.
+	byName := true
+	for i := 1; i < len(names) && byName; i++ {
+		byName = names[i-1] < names[i]
+	}
+	if byName {
 		return nil
 	}
 	out := make(map[string]int, len(names))

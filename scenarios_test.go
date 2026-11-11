@@ -221,6 +221,18 @@ func scenarios() []scenario {
 			s.decoys(film, 1000, 0, "permute")
 			return s, film
 		}, wantMain(77)},
+		{"an image laid out in the order of its clips' names gives only the names' evidence", func(t *testing.T) (*synDisc, []string) {
+			s := newSyn(19)
+			film := s.film(12, 500, evidence{numbered: true, layout: true})
+			s.feature(40, film)
+			s.decoys(film, 200, 100, "permute")
+			return s, film
+		}, func(t *testing.T, d *Disc, r *Ranking, film []string) {
+			wantMain(40)(t, d, r, film)
+			if c := r.Candidate(40); c.Continuity > 0.5 || r.ConfidenceLabel == "high" {
+				t.Errorf("a layout that only repeats the names was taken as evidence: continuity %v, confidence %s", c.Continuity, r.ConfidenceLabel)
+			}
+		}},
 		{"1000 permuted decoys, only the clip numbers tell", func(t *testing.T) (*synDisc, []string) {
 			s := newSyn(4)
 			film := s.film(24, 280, evidence{numbered: true})

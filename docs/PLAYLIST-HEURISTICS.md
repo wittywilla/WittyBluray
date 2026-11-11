@@ -64,7 +64,7 @@ An obfuscated disc carries hundreds or thousands of playlists of the same clips 
 | Nothing better: a whole clip after a whole clip of a higher number / a higher number / a lower number | 0.5 / 0.25 / -0.5 |
 | An earlier part of the clip just played | -1 |
 
-Clips that each start their clock afresh overlap in time and say nothing; then the layout decides on an image, and the clip numbers on a folder. A film's clips lie on the disc in playing order because a player cannot seek back between two seamless items. An item that claims to continue the last one's clock (connection condition 6) while its time does not follow on loses points.
+Clips that each start their clock afresh overlap in time and say nothing; then the layout decides on an image, and the clip numbers on a folder. A layout that is simply the order of the clips' names is not used: an image rebuilt from a folder of files is laid out that way whatever the film's order, so it says no more than the names do. A film's clips lie on the disc in playing order because a player cannot seek back between two seamless items. An item that claims to continue the last one's clock (connection condition 6) while its time does not follow on loses points.
 
 Playlists with the same set of segments form a cluster. Within it they are rated by the share of joins that carry on (worth most), then by what the disc's program points at, then by the weak evidence; the best stands and the rest are `shuffled`. When more than one is best and nothing singles one out, they are all `ambiguous`, the lowest-numbered is picked, the confidence is low and a warning says so: the engine does not pretend to know.
 
