@@ -24,7 +24,9 @@ func (r *rd) fail(what string, off, n int) {
 }
 
 func (r *rd) ok(off, n int) bool {
-	if off < 0 || n < 0 || off+n > len(r.b) {
+	// off+n is not formed: on a 32-bit build an offset near the top of the
+	// range would wrap it round to a small number and pass.
+	if off < 0 || n < 0 || off > len(r.b) || n > len(r.b)-off {
 		r.fail("read", off, n)
 		return false
 	}
@@ -73,3 +75,26 @@ func (r *rd) str(off, n int) string {
 
 // ticks45 formats a 45 kHz timestamp as seconds.
 func ticks45(t uint32) float64 { return float64(t) / 45000 }
+
+// at returns a reader of its own over n bytes at off, so that a damaged part
+// of a file (a stream table, an entry-point map) fails by itself and leaves
+// the rest readable. A range outside the structure gives an empty reader
+// that has already failed.
+func (r *rd) at(off, n int) *rd {
+	if off < 0 || n < 0 || off > len(r.b) || n > len(r.b)-off {
+		s := &rd{}
+		s.fail("section", off, n)
+		return s
+	}
+	return &rd{b: r.b[off : off+n]}
+}
+
+// rest is at() to the end of the structure.
+func (r *rd) rest(off int) *rd {
+	if off < 0 || off > len(r.b) {
+		s := &rd{}
+		s.fail("section", off, 0)
+		return s
+	}
+	return &rd{b: r.b[off:]}
+}

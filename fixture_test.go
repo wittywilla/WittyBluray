@@ -117,7 +117,7 @@ func fxClip(packets uint32, start, end uint32, every int) []byte {
 		p90 := uint64(t) * 2
 		spn := (t - start) / sec // one packet per second: enough to tell entry points apart
 		body = append(body, cat(be32(uint32(k)<<14|uint32(p90>>19)&0x3fff), be32(spn))...)
-		fine = append(fine, be32(uint32((p90>>9)&0x3ff)<<17|spn&0x1ffff)...)
+		fine = append(fine, be32(uint32((p90>>9)&0x7ff)<<17|spn&0x1ffff)...)
 	}
 	body = append(body, fine...)
 	return cat(b, be32(uint32(len(body)+2)), be16(1), body)

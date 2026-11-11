@@ -30,6 +30,27 @@ type Playlist struct {
 	Items                                  []PlayItem
 	SubPaths                               []SubPath
 	Marks                                  []Mark
+	// ExtSubPaths are the sub-paths kept in the file's extension data, where
+	// 3D discs put the dependent view and Ultra HD discs the Dolby Vision
+	// layer. Stream entries never index them, so they are apart from SubPaths.
+	ExtSubPaths []SubPath
+	// Stereo3D: the playlist has a 3D stream table or a dependent-view
+	// sub-path (in SubPaths or in the extension data).
+	Stereo3D bool
+	// Extensions lists the blocks of extension data the file carries.
+	Extensions []Extension
+	// Warnings names what was damaged in the file and done without: a stream
+	// table cut short, chapter marks that could not be read. The play items
+	// themselves were read, or parsing would have failed.
+	Warnings []string
+}
+
+// Extension is one block of a playlist's extension data. ID1 2 with ID2 1 is
+// the 3D stream table, ID1 2 with ID2 2 more sub-paths, ID1 1 with ID2 1
+// picture-in-picture placement.
+type Extension struct {
+	ID1, ID2 int
+	Length   int
 }
 
 // PlayItem is one stretch of a clip.
@@ -224,14 +245,55 @@ func (pl *Playlist) SubClip(s Stream) string {
 	return it.Clip
 }
 
-// ParsePlaylist parses one .mpls file.
+// What one playlist file may make the parser keep. The format allows 999
+// play items; a file is given some slack, not the 16 MB it may be long.
+const (
+	maxPlayItems       = 1000
+	maxMarks           = 10000
+	maxStreamsPerItem  = 600
+	maxPlaylistStreams = 1 << 16
+)
+
+// stnCache shares the parsed stream tables of play items whose tables are
+// byte for byte the same, within a playlist and across a disc. An
+// obfuscated disc repeats one table tens of thousands of times; parsed
+// once, a thousand decoy playlists cost little more than their play items.
+// Shared tables are read-only.
+type stnCache struct {
+	m       map[string]*stnTable
+	streams int // parsed streams held, for the disc's budget
+}
+
+type stnTable struct {
+	video, audio, pg []Stream
+	ig, secAudio     []Stream
+	secVideo, pipPG  []Stream
+	dv               []Stream
+	count            int
+	full             bool // cut short by the playlist's budget, so not for sharing
+	warn             string
+}
+
+func newSTNCache() *stnCache { return &stnCache{m: map[string]*stnTable{}} }
+
+// ParsePlaylist parses one .mpls file. The play items must be readable. A
+// stream table that runs past its own length keeps the streams read so far,
+// and unreadable chapter marks, sub-paths or extension data are left out;
+// each is named in Warnings.
 func ParsePlaylist(number int, b []byte) (*Playlist, error) {
+	return parsePlaylist(number, b, nil)
+}
+
+func parsePlaylist(number int, b []byte, cache *stnCache) (*Playlist, error) {
 	r := &rd{b: b}
 	if r.str(0, 4) != "MPLS" {
 		return nil, errors.New("not a playlist file")
 	}
+	if cache == nil {
+		cache = newSTNCache()
+	}
 	pl := &Playlist{Number: number, Version: r.str(4, 4)}
-	plStart, markStart := int(r.u32(8)), int(r.u32(12))
+	plStart, markStart, extStart := int(r.u32(8)), int(r.u32(12)), int(r.u32(16))
 	// AppInfoPlayList
 	pl.PlaybackType = int(r.u8(45))
 	pl.PlaybackCount = int(r.u16(46))
@@ -243,39 +305,126 @@ func ParsePlaylist(number int, b []byte) (*Playlist, error) {
 	o := plStart
 	nItems, nSub := int(r.u16(o+6)), int(r.u16(o+8))
 	o += 10
-	if nItems > 1000 || nSub > 255 {
+	if nItems > maxPlayItems || nSub > 255 {
 		return nil, fmt.Errorf("%d play items and %d sub-paths is more than a playlist can have", nItems, nSub)
 	}
+	streams := 0
 	for i := 0; i < nItems && r.err == nil; i++ {
 		l := int(r.u16(o))
-		it := parsePlayItem(r, o+2)
+		if !r.ok(o+2, 32) { // the fixed part of a play item
+			break
+		}
+		// The item is read inside its own length when that is believable,
+		// so a damaged stream table cannot read into the next item.
+		ir := r.rest(o + 2)
+		if l >= 32 && r.ok(o+2, l) {
+			ir = r.at(o+2, l)
+		}
+		it, warn := parsePlayItem(ir, cache, maxPlaylistStreams-streams)
+		streams += len(it.Video) + len(it.Audio) + len(it.PG) + len(it.IG) + len(it.SecAudio) + len(it.SecVideo) + len(it.PiPPG) + len(it.DV)
+		if warn != "" && len(pl.Warnings) < 8 {
+			pl.Warnings = append(pl.Warnings, fmt.Sprintf("play item %d: %s", i, warn))
+		}
 		pl.Items = append(pl.Items, it)
 		o += 2 + l
-	}
-	for i := 0; i < nSub && r.err == nil; i++ {
-		l := int(r.u32(o))
-		sp := parseSubPath(r, o+4)
-		pl.SubPaths = append(pl.SubPaths, sp)
-		o += 4 + l
-	}
-	// PlayListMark
-	o = markStart
-	nMarks := int(r.u16(o + 4))
-	o += 6
-	if nMarks > 10000 {
-		return nil, fmt.Errorf("%d marks is more than a playlist can have", nMarks)
-	}
-	for i := 0; i < nMarks && r.err == nil; i++ {
-		pl.Marks = append(pl.Marks, Mark{Type: int(r.u8(o + 1)), Item: int(r.u16(o + 2)), Time: r.u32(o + 4), PID: r.u16(o + 8), Duration: r.u32(o + 10)})
-		o += 14
 	}
 	if r.err != nil {
 		return nil, r.err
 	}
+	sr := &rd{b: b}
+	for i := 0; i < nSub && sr.err == nil; i++ {
+		l := int(sr.u32(o))
+		sp := parseSubPath(sr, o+4)
+		if sr.err == nil {
+			pl.SubPaths = append(pl.SubPaths, sp)
+		}
+		o += 4 + l
+	}
+	if sr.err != nil {
+		pl.Warnings = append(pl.Warnings, "sub-paths: "+sr.err.Error())
+	}
+	// PlayListMark
+	if markStart > 0 {
+		mr := &rd{b: b}
+		o = markStart
+		nMarks := int(mr.u16(o + 4))
+		o += 6
+		if nMarks > maxMarks {
+			pl.Warnings = append(pl.Warnings, fmt.Sprintf("%d marks is more than a playlist can have; the first %d were read", nMarks, maxMarks))
+			nMarks = maxMarks
+		}
+		if o >= 0 && o <= len(b) {
+			nMarks = min(nMarks, (len(b)-o)/14+1) // one past what fits, so a cut-off table is noticed
+		}
+		for i := 0; i < nMarks && mr.err == nil; i++ {
+			m := Mark{Type: int(mr.u8(o + 1)), Item: int(mr.u16(o + 2)), Time: mr.u32(o + 4), PID: mr.u16(o + 8), Duration: mr.u32(o + 10)}
+			if mr.err == nil {
+				pl.Marks = append(pl.Marks, m)
+			}
+			o += 14
+		}
+		if mr.err != nil {
+			pl.Warnings = append(pl.Warnings, "chapter marks: "+mr.err.Error())
+		}
+	}
+	if extStart > 0 {
+		parsePlaylistExtensions(pl, b, extStart)
+	}
+	for _, sp := range pl.SubPaths {
+		if sp.Type == 8 || sp.Type == 9 {
+			pl.Stereo3D = true
+		}
+	}
 	return pl, nil
 }
 
-func parsePlayItem(r *rd, o int) PlayItem {
+// parsePlaylistExtensions reads the extension data's table of contents and,
+// from it, the extra sub-paths. Damage here costs only what it describes.
+func parsePlaylistExtensions(pl *Playlist, b []byte, extStart int) {
+	r := &rd{b: b}
+	if r.u32(extStart) == 0 {
+		return
+	}
+	n := int(r.u8(extStart + 11))
+	o := extStart + 12
+	for i := 0; i < n && i < 32 && r.err == nil; i++ {
+		id1, id2 := int(r.u16(o)), int(r.u16(o+2))
+		at, l := extStart+int(r.u32(o+4)), int(r.u32(o+8))
+		o += 12
+		if r.err != nil {
+			break
+		}
+		pl.Extensions = append(pl.Extensions, Extension{ID1: id1, ID2: id2, Length: l})
+		switch {
+		case id1 == 2 && id2 == 1:
+			pl.Stereo3D = true
+		case id1 == 2 && id2 == 2:
+			// length (4), count (2), then sub-paths as in the playlist.
+			e := &rd{b: b}
+			cnt := int(e.u16(at + 4))
+			p := at + 6
+			for k := 0; k < cnt && k < 255 && e.err == nil; k++ {
+				sl := int(e.u32(p))
+				sp := parseSubPath(e, p+4)
+				if e.err == nil {
+					pl.ExtSubPaths = append(pl.ExtSubPaths, sp)
+					if sp.Type == 8 || sp.Type == 9 {
+						pl.Stereo3D = true
+					}
+				}
+				p += 4 + sl
+			}
+		}
+	}
+	if r.err != nil {
+		pl.Warnings = append(pl.Warnings, "extension data: "+r.err.Error())
+	}
+}
+
+// parsePlayItem reads a play item from a reader that starts at its clip
+// name. budget is how many more streams the playlist may keep.
+func parsePlayItem(r *rd, cache *stnCache, budget int) (PlayItem, string) {
+	o := 0
 	it := PlayItem{Clip: r.str(o, 5), Codec: r.str(o+5, 4)}
 	flags := r.u16(o + 9)
 	multi := flags&0x10 != 0
@@ -288,58 +437,111 @@ func parsePlayItem(r *rd, o int) PlayItem {
 	it.StillTime = int(r.u16(o + 30))
 	it.Angles = []AngleClip{{Clip: it.Clip, Codec: it.Codec, STCID: it.STCID}}
 	p := o + 32
+	// From here on a short or damaged item keeps what was read.
+	t := &rd{b: r.b}
 	if multi {
-		n := int(r.u8(p))
-		af := r.u8(p + 1)
+		n := int(t.u8(p))
+		af := t.u8(p + 1)
 		it.DifferentAudios = af&2 != 0
 		it.SeamlessAngles = af&1 != 0
 		p += 2
-		for k := 1; k < n && k < 10 && r.err == nil; k++ {
-			it.Angles = append(it.Angles, AngleClip{Clip: r.str(p, 5), Codec: r.str(p+5, 4), STCID: int(r.u8(p + 9))})
+		for k := 1; k < n && t.err == nil; k++ {
+			if k < 10 { // the format allows nine angles
+				a := AngleClip{Clip: t.str(p, 5), Codec: t.str(p+5, 4), STCID: int(t.u8(p + 9))}
+				if t.err == nil {
+					it.Angles = append(it.Angles, a)
+				}
+			}
 			p += 10
 		}
 	}
-	// STN table
+	if t.err != nil {
+		return it, "its angle table is cut short"
+	}
+	// STN table: its own length says where it ends.
+	stnLen := int(t.u16(p))
+	if t.err != nil {
+		return it, "it has no stream table"
+	}
+	// A table whose length is believable is read inside it and shared with
+	// every other item that has the same bytes.
+	var tab *stnTable
+	if t.ok(p, 2+stnLen) && stnLen <= 1<<16 {
+		raw := t.at(p, 2+stnLen)
+		if tab = cache.m[string(raw.b)]; tab == nil || tab.count > budget {
+			tab = parseSTN(raw, budget)
+			if !tab.full {
+				cache.m[string(raw.b)] = tab
+				cache.streams += tab.count
+			}
+		}
+	} else {
+		tab = parseSTN(t.rest(p), budget)
+		if tab.warn == "" {
+			tab.warn = "its stream table's length is wrong"
+		}
+	}
+	it.Video, it.Audio, it.PG, it.IG = tab.video, tab.audio, tab.pg, tab.ig
+	it.SecAudio, it.SecVideo, it.PiPPG, it.DV = tab.secAudio, tab.secVideo, tab.pipPG, tab.dv
+	return it, tab.warn
+}
+
+// parseSTN reads a stream table from a reader that starts at its length.
+func parseSTN(r *rd, budget int) *stnTable {
+	tab := &stnTable{}
 	counts := [8]int{}
 	for k := range counts {
-		counts[k] = int(r.u8(p + 4 + k))
+		counts[k] = int(r.u8(4 + k))
 	}
-	q := p + 16
-	read := func(kind string, n int) []Stream {
+	if r.err != nil {
+		tab.warn = "its stream table is cut short"
+		return tab
+	}
+	budget = min(budget, maxStreamsPerItem)
+	q := 16
+	full := false
+	read := func(kind string, n int, after func()) []Stream {
 		var out []Stream
 		for k := 0; k < n && r.err == nil; k++ {
 			s, next := parseStream(r, q, kind)
-			out = append(out, s)
 			q = next
+			if after != nil {
+				after()
+			}
+			if r.err != nil {
+				break
+			}
+			if tab.count >= budget {
+				full = true
+				continue
+			}
+			tab.count++
+			out = append(out, s)
 		}
 		return out
 	}
-	// The table's own order: picture-in-picture subtitles follow the
-	// subtitles, and secondary streams carry lists of what they go with.
-	it.Video = read("video", counts[0])
-	it.Audio = read("audio", counts[1])
-	it.PG = read("pg", counts[2])
-	it.PiPPG = read("pip-pg", counts[6])
-	it.IG = read("ig", counts[3])
 	refs := func() {
 		n := int(r.u8(q))
 		q += 2 + n + n&1
 	}
-	for k := 0; k < counts[4] && r.err == nil; k++ {
-		sa, next := parseStream(r, q, "sec-audio")
-		it.SecAudio = append(it.SecAudio, sa)
-		q = next
-		refs()
+	// The table's own order: picture-in-picture subtitles follow the
+	// subtitles, and secondary streams carry lists of what they go with.
+	tab.video = read("video", counts[0], nil)
+	tab.audio = read("audio", counts[1], nil)
+	tab.pg = read("pg", counts[2], nil)
+	tab.pipPG = read("pip-pg", counts[6], nil)
+	tab.ig = read("ig", counts[3], nil)
+	tab.secAudio = read("sec-audio", counts[4], refs)
+	tab.secVideo = read("sec-video", counts[5], func() { refs(); refs() })
+	tab.dv = read("dv", counts[7], nil)
+	switch {
+	case r.err != nil:
+		tab.warn = "its stream table is cut short; the streams before the damage were kept"
+	case full:
+		tab.full = true
+		tab.warn = "it lists more streams than a play item can have; the rest were left out"
 	}
-	for k := 0; k < counts[5] && r.err == nil; k++ {
-		sv, next := parseStream(r, q, "sec-video")
-		it.SecVideo = append(it.SecVideo, sv)
-		q = next
-		refs()
-		refs()
-	}
-	it.DV = read("dv", counts[7])
-	return it
+	return tab
 }
 
 // parseStream reads a stream entry and its attributes; returns the stream

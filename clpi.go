@@ -28,11 +28,27 @@ type Clip struct {
 	STC                         []STCSequence
 	Programs                    []Program
 	EPMaps                      []EPMap
+	// ATC lists the arrival-time sequences: stretches of the file recorded
+	// in one go. A clip mastered for a disc has one; a second one means the
+	// packet clock restarts mid-file.
+	ATC []ATCSequence
+	// Warnings names the parts of the file that were damaged and done
+	// without (the program table, the entry-point map). The clip's length
+	// and time bases were still read.
+	Warnings []string
+}
+
+// ATCSequence is one arrival-time sequence and the time bases inside it.
+type ATCSequence struct {
+	StartSPN uint32
+	FirstSTC int // the ID of its first time base
+	STCs     int // how many time bases it holds
 }
 
 // STCSequence is a stretch of the clip with one continuous clock.
 type STCSequence struct {
 	ID         int // the number play items name it by
+	ATC        int // index into Clip.ATC
 	PCRPID     uint16
 	StartSPN   uint32
 	Start, End uint32 // presentation times, 45 kHz
@@ -209,7 +225,17 @@ func (c *Clip) EndPTS(stc int) uint32 {
 	return 0
 }
 
-// ParseClip parses one .clpi file.
+// Limits on what one clip information file may make the parser keep. A
+// three-hour film has some twenty thousand entry points.
+const (
+	maxEPEntriesPerClip = 1 << 19
+	maxSTCPerClip       = 1024
+)
+
+// ParseClip parses one .clpi file. The header, the clip information and the
+// time bases must be readable; a damaged program table or entry-point map
+// is left out and named in Warnings, because the clip's length and time
+// bases are enough to describe and rank what plays it.
 func ParseClip(name string, b []byte) (*Clip, error) {
 	r := &rd{b: b}
 	if r.str(0, 4) != "HDMV" {
@@ -220,22 +246,42 @@ func ParseClip(name string, b []byte) (*Clip, error) {
 	// ClipInfo
 	c.StreamType = int(r.u8(46))
 	c.ApplicationType = int(r.u8(47))
-	c.TSRate = int(r.u32(52))
+	c.TSRate = int(r.u32(52) & 0x7fffffff)
 	c.Packets = r.u32(56)
 	// SequenceInfo: ATC sequences, each with STC sequences.
 	o := seqStart + 5
 	nATC := int(r.u8(o))
 	o++
 	for i := 0; i < nATC && i < 32 && r.err == nil; i++ {
+		atcStart := r.u32(o)
 		nSTC, first := int(r.u8(o+4)), int(r.u8(o+5))
 		o += 6
-		for j := 0; j < nSTC && j < 255 && r.err == nil; j++ {
-			c.STC = append(c.STC, STCSequence{ID: first + j, PCRPID: r.u16(o), StartSPN: r.u32(o + 2), Start: r.u32(o + 6), End: r.u32(o + 10)})
+		c.ATC = append(c.ATC, ATCSequence{StartSPN: atcStart, FirstSTC: first, STCs: nSTC})
+		for j := 0; j < nSTC && r.err == nil; j++ {
+			if len(c.STC) < maxSTCPerClip {
+				c.STC = append(c.STC, STCSequence{ID: first + j, ATC: i, PCRPID: r.u16(o), StartSPN: r.u32(o + 2), Start: r.u32(o + 6), End: r.u32(o + 10)})
+			}
 			o += 14
 		}
 	}
-	// ProgramInfo
-	o = progStart + 5
+	if r.err != nil {
+		return nil, r.err
+	}
+	if err := parseClipPrograms(c, b, progStart); err != nil {
+		c.Programs = nil
+		c.Warnings = append(c.Warnings, "program table: "+err.Error())
+	}
+	if cpiStart > 0 {
+		if err := parseClipCPI(c, b, cpiStart); err != nil {
+			c.Warnings = append(c.Warnings, "entry-point map: "+err.Error())
+		}
+	}
+	return c, nil
+}
+
+func parseClipPrograms(c *Clip, b []byte, progStart int) error {
+	r := &rd{b: b}
+	o := progStart + 5
 	nProg := int(r.u8(o))
 	o++
 	for i := 0; i < nProg && i < 255 && r.err == nil; i++ {
@@ -262,64 +308,99 @@ func ParseClip(name string, b []byte) (*Clip, error) {
 			case 0x92:
 				s.Lang = r.str(a+1, 3)
 			}
-			p.Streams = append(p.Streams, s)
+			if r.err == nil {
+				p.Streams = append(p.Streams, s)
+			}
 			o += 3 + l
 		}
-		c.Programs = append(c.Programs, p)
-	}
-	// CPI: the entry-point map.
-	if cpiStart > 0 && r.u32(cpiStart) > 0 && r.u16(cpiStart+4)&15 == 1 {
-		base := cpiStart + 6 // EP_map starts after the length and type
-		n := int(r.u8(base + 1))
-		o = base + 2
-		for i := 0; i < n && i < 32 && r.err == nil; i++ {
-			m := EPMap{PID: r.u16(o)}
-			// 48 bits: 10 reserved, 4 stream type, 16 coarse entries, 18 fine entries.
-			v := uint64(r.u16(o+2))<<32 | uint64(r.u32(o+4))
-			nCoarse := int((v >> 18) & 0xffff)
-			nFine := int(v & 0x3ffff)
-			start := base + int(r.u32(o+8))
-			o += 12
-			if nCoarse > 100000 || nFine > 1<<18 {
-				return nil, fmt.Errorf("entry-point map for PID %d is too large", m.PID)
-			}
-			fineStart := start + int(r.u32(start))
-			coarse := start + 4
-			type cEntry struct {
-				fineID uint32
-				pts    uint32
-				spn    uint32
-			}
-			cs := make([]cEntry, 0, nCoarse)
-			for k := 0; k < nCoarse && r.err == nil; k++ {
-				w := r.u32(coarse + k*8)
-				cs = append(cs, cEntry{fineID: w >> 14, pts: w & 0x3fff, spn: r.u32(coarse + k*8 + 4)})
-			}
-			for k := range cs {
-				end := nFine
-				if k+1 < len(cs) {
-					end = int(cs[k+1].fineID)
-				}
-				base := cs[k].spn &^ 0x1ffff
-				prevFine := uint32(0)
-				for f := int(cs[k].fineID); f < end && f < nFine && r.err == nil; f++ {
-					w := r.u32(fineStart + f*4)
-					fineSPN := w & 0x1ffff
-					if fineSPN < prevFine {
-						base += 0x20000 // the 17-bit packet number wrapped within this coarse entry
-					}
-					prevFine = fineSPN
-					// PTS: the coarse entry holds bits 32..19 of the 90 kHz time,
-					// the fine entry bits 19..9; the engine keeps 45 kHz.
-					pts90 := uint64(cs[k].pts)<<19 | uint64((w>>17)&0x3ff)<<9
-					m.Entries = append(m.Entries, EPEntry{PTS: uint32(pts90 / 2), SPN: base | fineSPN, AngleChange: w>>31 != 0})
-				}
-			}
-			c.EPMaps = append(c.EPMaps, m)
+		if r.err == nil {
+			c.Programs = append(c.Programs, p)
 		}
 	}
-	if r.err != nil {
-		return nil, r.err
+	return r.err
+}
+
+// parseClipCPI reads the entry-point maps. A map that is damaged part of
+// the way keeps the entries read so far when they are in order, and is
+// dropped otherwise; the maps before it stay.
+func parseClipCPI(c *Clip, b []byte, cpiStart int) error {
+	r := &rd{b: b}
+	if r.u32(cpiStart) == 0 || r.u16(cpiStart+4)&15 != 1 {
+		return r.err // no map, or not an EP_map
 	}
-	return c, nil
+	base := cpiStart + 6 // EP_map starts after the length and type
+	n := int(r.u8(base + 1))
+	o := base + 2
+	total := 0
+	for i := 0; i < n && i < 32 && r.err == nil; i++ {
+		m := EPMap{PID: r.u16(o)}
+		// 48 bits: 10 reserved, 4 stream type, 16 coarse entries, 18 fine entries.
+		v := uint64(r.u16(o+2))<<32 | uint64(r.u32(o+4))
+		nCoarse := int((v >> 18) & 0xffff)
+		nFine := int(v & 0x3ffff)
+		start := base + int(r.u32(o+8))
+		o += 12
+		if r.err != nil {
+			break
+		}
+		e := &rd{b: b}
+		fineStart := start + int(e.u32(start))
+		coarse := start + 4
+		// What the file is long enough to hold, whatever it claims.
+		if coarse >= 0 && coarse <= len(b) {
+			nCoarse = min(nCoarse, (len(b)-coarse)/8)
+		} else {
+			nCoarse = 0
+		}
+		if fineStart >= 0 && fineStart <= len(b) {
+			nFine = min(nFine, (len(b)-fineStart)/4)
+		} else {
+			nFine = 0
+		}
+		if room := maxEPEntriesPerClip - total; nFine > room {
+			nFine = room
+			c.Warnings = append(c.Warnings, fmt.Sprintf("entry-point map: more than %d entries; the rest were left out", maxEPEntriesPerClip))
+		}
+		m.Entries = make([]EPEntry, 0, nFine)
+		next := 0 // the fine entry the next coarse entry must start at or after
+		for k := 0; k < nCoarse && e.err == nil; k++ {
+			w := e.u32(coarse + k*8)
+			first, ptsCoarse, spnCoarse := int(w>>14), uint64(w&0x3fff), e.u32(coarse+k*8+4)
+			end := nFine
+			if k+1 < nCoarse {
+				end = min(nFine, int(e.u32(coarse+(k+1)*8)>>14))
+			}
+			// Coarse entries name their fine entries in rising order. One
+			// that goes back would read the same entries again (and a file
+			// of them could ask for billions), so it is skipped.
+			if first < next {
+				continue
+			}
+			hi, prev := spnCoarse&^0x1ffff, uint32(0)
+			for f := first; f < end && e.err == nil; f++ {
+				w := e.u32(fineStart + f*4)
+				if low := w & 0x1ffff; low < prev {
+					hi += 0x20000 // packet numbers only rise: the low 17 bits wrapped inside this group
+				}
+				prev = w & 0x1ffff
+				// The 33-bit, 90 kHz time is split so that bit 19 is in both
+				// halves: the coarse entry holds bits 32..19 as they were at
+				// its first fine entry, each fine entry bits 19..9. The fine
+				// entry's bit 19 is the one that counts. Likewise the packet
+				// number: the coarse entry has all 32 bits, the fine one the
+				// low 17.
+				pts90 := (ptsCoarse&^1)<<19 + uint64((w>>17)&0x7ff)<<9
+				spn := hi + w&0x1ffff
+				m.Entries = append(m.Entries, EPEntry{PTS: uint32(pts90 / 2), SPN: spn, AngleChange: w>>31 != 0})
+			}
+			next = max(next, end)
+		}
+		total += len(m.Entries)
+		if e.err != nil && len(m.Entries) == 0 {
+			c.Warnings = append(c.Warnings, fmt.Sprintf("entry-point map for PID 0x%04x: %v", m.PID, e.err))
+			continue
+		}
+		c.EPMaps = append(c.EPMaps, m)
+	}
+	return r.err
 }

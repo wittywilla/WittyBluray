@@ -39,7 +39,7 @@ func ParseMovieObjects(b []byte) ([]MovieObject, error) {
 	if n > 10000 {
 		return nil, fmt.Errorf("MovieObject.bdmv: %d objects is more than a disc can have", n)
 	}
-	out := make([]MovieObject, 0, n)
+	out := make([]MovieObject, 0, min(n, len(b)/4))
 	for i := 0; i < n && r.err == nil; i++ {
 		flags := r.u16(o)
 		nc := int(r.u16(o + 2))
@@ -47,7 +47,13 @@ func ParseMovieObjects(b []byte) ([]MovieObject, error) {
 		if nc > 100000 {
 			return nil, fmt.Errorf("MovieObject.bdmv: object %d has %d commands", i, nc)
 		}
-		m := MovieObject{ResumeIntention: flags&0x8000 != 0, MenuCallMask: flags&0x4000 != 0, TitleSearchMask: flags&0x2000 != 0, Commands: make([]Command, 0, nc)}
+		// The count is the file's word for it: room is only made for the
+		// commands the file is long enough to hold.
+		room := 0
+		if o >= 0 && o <= len(b) {
+			room = min(nc, (len(b)-o)/12)
+		}
+		m := MovieObject{ResumeIntention: flags&0x8000 != 0, MenuCallMask: flags&0x4000 != 0, TitleSearchMask: flags&0x2000 != 0, Commands: make([]Command, 0, room)}
 		for c := 0; c < nc && r.err == nil; c++ {
 			m.Commands = append(m.Commands, Command{Op: r.u32(o), Dst: r.u32(o + 4), Src: r.u32(o + 8)})
 			o += 12
