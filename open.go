@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -74,7 +75,29 @@ type Disc struct {
 	// bdj.go); otherwise the disc plays from its playlists.
 	BDJ bool
 
+	// FromBackup names the structures read from the BACKUP folder because
+	// the first copy was missing, damaged, or contradicted the rest of the
+	// disc where the backup did not.
+	FromBackup []string
+	// Notes are remarks on how the disc was read that are not damage: a
+	// backup that differs from the first copy, a copy with no disc program,
+	// structures left out because the disc holds more than a disc can.
+	Notes []string
+	// MovieOnly: the copy has playlists and clips but neither index.bdmv nor
+	// MovieObject.bdmv (a "movie only" copy). There is no disc program to
+	// run or read; the playlists' structure alone decides the feature.
+	MovieOnly bool
+
 	layout     layout
+	stn        *stnCache
+	offsets    map[string]int64
+	sameFile   bool
+	consOnce   sync.Once
+	cons       []Inconsistency
+	bdjOnce    sync.Once
+	bdjHints   *BDJHints
+	metaOnce   sync.Once
+	meta       *DiscMeta
 	soundsOnce sync.Once
 	sounds     *Sounds
 	// The stream files' sizes and the main playlist, worked out once.
@@ -173,6 +196,36 @@ func Open(p string) (*Disc, error) {
 	return d, nil
 }
 
+// OpenSource opens a disc from any Source: a reader of the caller's own
+// (a network share, an archive, a test's synthetic disc). The disc is laid
+// out as on a Blu-ray, with BDMV at the root. Close closes the source.
+func OpenSource(src Source) (*Disc, error) {
+	if src == nil {
+		return nil, errors.New("no source to open")
+	}
+	lay, ok := findLayout(func(n string) bool {
+		if names, err := src.List(n); err == nil && len(names) > 0 {
+			return true
+		}
+		dir, base := path.Split(n)
+		names, _ := src.List(strings.TrimSuffix(dir, "/"))
+		for _, f := range names {
+			if strings.EqualFold(f, base) {
+				return true
+			}
+		}
+		return false
+	})
+	if !ok {
+		return nil, fmt.Errorf("%s: no BDMV/index.bdmv (not a Blu-ray)", src.Describe())
+	}
+	d := &Disc{Source: src, Playlists: map[int]*Playlist{}, Clips: map[string]*Clip{}, layout: lay}
+	if err := d.load(); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
 // Close releases the image.
 func (d *Disc) Close() error { return d.Source.Close() }
 
@@ -187,12 +240,25 @@ func readStructure[T any](d *Disc, rel string, parse func([]byte) (T, error)) (T
 			return v, nil
 		}
 	}
-	if bb, berr := d.Source.ReadFile(d.layout.root+"/BACKUP/"+rel, MaxStructureBytes); berr == nil {
-		if v, perr := parse(bb); perr == nil {
-			return v, nil
-		}
+	if v, berr := readBackup(d, rel, parse); berr == nil {
+		d.FromBackup = append(d.FromBackup, rel)
+		return v, nil
 	}
 	return zero, err
+}
+
+// readBackup reads only the BACKUP copy of a structure.
+func readBackup[T any](d *Disc, rel string, parse func([]byte) (T, error)) (T, error) {
+	var zero T
+	bb, err := d.Source.ReadFile(d.layout.root+"/BACKUP/"+rel, MaxStructureBytes)
+	if err != nil {
+		return zero, err
+	}
+	v, err := parse(bb)
+	if err != nil {
+		return zero, err
+	}
+	return v, nil
 }
 
 // listStructures names the files of a folder of the disc's program, with
@@ -213,50 +279,118 @@ func (d *Disc) listStructures(dir string, exts []string) []string {
 	return out
 }
 
+// What a whole disc may make the engine keep in memory. A commercial disc
+// with playlist obfuscation has a few thousand playlists, a few hundred
+// clips and some tens of thousands of play items; these are many times
+// that, and what is past them is left out and named in Notes.
+const (
+	maxDiscPlaylists = 20000
+	maxDiscClips     = 20000
+	maxDiscItems     = 400000
+	maxDiscMarks     = 1 << 20
+	maxDiscStreams   = 1 << 20 // in distinct stream tables
+	maxDiscEPEntries = 8 << 20
+)
+
 func (d *Disc) load() error {
 	if s, ok := d.Source.(*imageSource); ok {
 		d.Label = s.img.Label
 	} else if s, ok := d.Source.(*folderSource); ok {
 		d.Label = filepath.Base(s.dir)
 	}
-	var err error
-	if d.Index, err = readStructure(d, d.layout.index, ParseIndex); err != nil {
+	d.stn = newSTNCache()
+	var ixErr, moErr error
+	if d.Index, ixErr = readStructure(d, d.layout.index, ParseIndex); ixErr != nil {
 		// No readable program: the streams can still be played from their
 		// clips. Only a recording is expected to be like this.
 		d.Index = &Index{}
 		if d.layout.root == "BDAV" {
 			d.Recording = true
-		} else {
-			d.Damaged = append(d.Damaged, d.layout.index)
 		}
 	}
-	if mo, err := readStructure(d, d.layout.mobj, ParseMovieObjects); err == nil {
-		d.MovieObjects = mo
-	} else if d.layout.root != "BDAV" {
-		d.Damaged = append(d.Damaged, d.layout.mobj)
+	if d.MovieObjects, moErr = readStructure(d, d.layout.mobj, ParseMovieObjects); moErr != nil {
+		d.MovieObjects = nil
 	}
+	if !d.Recording {
+		top, _ := d.Source.List(d.layout.root)
+		bak, _ := d.Source.List(d.layout.root + "/BACKUP")
+		has := func(name string) bool {
+			for _, n := range append(top, bak...) {
+				if strings.EqualFold(n, name) {
+					return true
+				}
+			}
+			return false
+		}
+		switch {
+		case ixErr != nil && moErr != nil && !has(d.layout.index) && !has(d.layout.mobj):
+			d.MovieOnly = true
+			d.Notes = append(d.Notes, "This copy has no index.bdmv and no MovieObject.bdmv (a movie-only copy): there is no disc program, so the playlists' structure decides what the feature is.")
+		default:
+			if ixErr != nil {
+				d.Damaged = append(d.Damaged, d.layout.index)
+			}
+			if moErr != nil {
+				d.Damaged = append(d.Damaged, d.layout.mobj)
+			}
+		}
+	}
+	items, marks, left := 0, 0, 0
 	for _, n := range d.listStructures("PLAYLIST", d.layout.playlists) {
 		num, _ := structureNumber(n, d.layout.playlists)
-		pl, err := readStructure(d, "PLAYLIST/"+n, func(b []byte) (*Playlist, error) { return ParsePlaylist(num, b) })
+		if len(d.Playlists) >= maxDiscPlaylists || items >= maxDiscItems || marks >= maxDiscMarks || d.stn.streams >= maxDiscStreams {
+			left++
+			continue
+		}
+		pl, err := readStructure(d, "PLAYLIST/"+n, func(b []byte) (*Playlist, error) { return parsePlaylist(num, b, d.stn) })
 		if err != nil {
 			d.Damaged = append(d.Damaged, n) // one damaged playlist should not stop the disc
 			continue
 		}
+		items += len(pl.Items)
+		marks += len(pl.Marks)
 		d.Playlists[num] = pl
 	}
+	if left > 0 {
+		d.Notes = append(d.Notes, fmt.Sprintf("%d playlists were left out: the disc holds more playlists, play items or streams than a disc can.", left))
+	}
+	entries, left := 0, 0
 	for _, n := range d.listStructures("CLIPINF", d.layout.clips) {
+		if len(d.Clips) >= maxDiscClips {
+			left++
+			continue
+		}
 		name := strings.TrimSuffix(n, filepath.Ext(n))
 		c, err := readStructure(d, "CLIPINF/"+n, func(b []byte) (*Clip, error) { return ParseClip(name, b) })
 		if err != nil {
 			d.Damaged = append(d.Damaged, n)
 			continue
 		}
+		for i := range c.EPMaps {
+			entries += len(c.EPMaps[i].Entries)
+		}
+		if entries > maxDiscEPEntries {
+			// Past the budget a clip keeps its length and time bases and
+			// loses its entry-point map; seeking in it starts from its head.
+			for i := range c.EPMaps {
+				entries -= len(c.EPMaps[i].Entries)
+			}
+			c.EPMaps = nil
+			c.Warnings = append(c.Warnings, "entry-point map: left out, the disc's maps together are larger than a disc can hold")
+		}
 		d.Clips[c.Name] = c
 	}
+	if left > 0 {
+		d.Notes = append(d.Notes, fmt.Sprintf("%d clips were left out: the disc holds more clips than a disc can.", left))
+	}
+	d.repairFromBackup()
 	if len(d.Playlists) == 0 {
 		// A recording, or a disc whose playlists are all gone: every clip
 		// plays by itself.
 		d.synthesizePlaylists()
+		if len(d.Playlists) > 0 && !d.Recording {
+			d.Notes = append(d.Notes, "No playlist could be read: each clip was made a playlist of its own.")
+		}
 	}
 	if len(d.Playlists) == 0 {
 		return errors.New("the disc has no playlists")
@@ -274,10 +408,8 @@ func (d *Disc) load() error {
 		d.Stereo3D = true
 	}
 	for _, pl := range d.Playlists {
-		for _, sp := range pl.SubPaths {
-			if sp.Type == 8 || sp.Type == 9 {
-				d.Stereo3D = true
-			}
+		if pl.Stereo3D {
+			d.Stereo3D = true
 		}
 	}
 	aacs, _ := d.Source.List("AACS")
@@ -290,6 +422,116 @@ func (d *Disc) load() error {
 		d.Encrypted = true // nothing could be checked: assume the worst
 	}
 	return nil
+}
+
+// playlistFaults counts what in a playlist contradicts the clips: play
+// items whose clip has no information, or whose times lie outside the
+// clip's time base.
+func (d *Disc) playlistFaults(pl *Playlist) int {
+	n := 0
+	for i := range pl.Items {
+		it := &pl.Items[i]
+		c := d.Clips[it.Clip]
+		switch {
+		case c == nil:
+			n++
+		case it.Out <= it.In:
+			n++
+		default:
+			if end := c.EndPTS(it.STCID); end > 0 && it.Out > end+45000 {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// repairFromBackup looks again at structures that parsed but contradict the
+// rest of the disc. A file can be damaged and still parse: a playlist with
+// a clip name or a time flipped, an index that names movie objects that are
+// not there. When the BACKUP copy parses and has fewer such faults, it is
+// the one used. Only suspect files are read twice, so a clean disc with
+// thousands of playlists opens no slower.
+func (d *Disc) repairFromBackup() {
+	if len(d.Clips) > 0 {
+		tried := 0
+		for _, pl := range d.sortedPlaylists() {
+			faults := d.playlistFaults(pl)
+			if faults == 0 || tried >= 4096 {
+				continue
+			}
+			tried++
+			num := pl.Number
+			for _, ext := range d.layout.playlists {
+				rel := fmt.Sprintf("PLAYLIST/%05d%s", num, ext)
+				bp, err := readBackup(d, rel, func(b []byte) (*Playlist, error) { return parsePlaylist(num, b, d.stn) })
+				if err != nil {
+					continue
+				}
+				if d.playlistFaults(bp) < faults {
+					d.Playlists[num] = bp
+					d.FromBackup = append(d.FromBackup, rel)
+					d.Notes = append(d.Notes, fmt.Sprintf("Playlist %05d contradicts the clips it names and its BACKUP copy does not: the backup is used.", num))
+				}
+				break
+			}
+		}
+	}
+	// The index and the movie objects go together: an index naming objects
+	// past the end of MovieObject.bdmv is a mismatched or damaged pair.
+	bad := func(ix *Index, mo []MovieObject) int {
+		if ix == nil {
+			return 0
+		}
+		n := 0
+		objs := []IndexObject{ix.FirstPlay, ix.TopMenu}
+		for _, t := range ix.Titles {
+			objs = append(objs, t.Object)
+		}
+		for _, o := range objs {
+			if o.Kind == ObjectHDMV && o.MovieObject >= len(mo) {
+				n++
+			}
+		}
+		return n
+	}
+	if faults := bad(d.Index, d.MovieObjects); faults > 0 {
+		bix, e1 := readBackup(d, d.layout.index, ParseIndex)
+		bmo, e2 := readBackup(d, d.layout.mobj, ParseMovieObjects)
+		best, pick := faults, 0
+		if e2 == nil && bad(d.Index, bmo) < best {
+			best, pick = bad(d.Index, bmo), 1
+		}
+		if e1 == nil && bad(bix, d.MovieObjects) < best {
+			best, pick = bad(bix, d.MovieObjects), 2
+		}
+		if e1 == nil && e2 == nil && bad(bix, bmo) < best {
+			pick = 3
+		}
+		if pick&1 != 0 {
+			d.MovieObjects = bmo
+			d.FromBackup = append(d.FromBackup, d.layout.mobj)
+		}
+		if pick&2 != 0 {
+			d.Index = bix
+			d.FromBackup = append(d.FromBackup, d.layout.index)
+		}
+		if pick != 0 {
+			d.Notes = append(d.Notes, "The index names movie objects that MovieObject.bdmv does not have, and the BACKUP copies agree with each other: the backup is used.")
+		} else {
+			d.Notes = append(d.Notes, "The index names movie objects that MovieObject.bdmv does not have; those titles cannot run.")
+		}
+	} else if len(d.Damaged) == 0 && !d.MovieOnly && !d.Recording {
+		// A backup that differs from a first copy that reads well is worth
+		// a remark, nothing more: the first copy is what a player uses.
+		for _, rel := range []string{d.layout.index, d.layout.mobj} {
+			a, e1 := d.Source.ReadFile(d.layout.root+"/"+rel, MaxStructureBytes)
+			b, e2 := d.Source.ReadFile(d.layout.root+"/BACKUP/"+rel, MaxStructureBytes)
+			if e1 == nil && e2 == nil && string(a) != string(b) {
+				d.Notes = append(d.Notes, rel+" and its BACKUP copy differ; the first copy is used.")
+			}
+		}
+	}
 }
 
 // synthesizePlaylists makes one playlist per clip, with the streams the clip

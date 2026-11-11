@@ -177,8 +177,8 @@ func TestObjectTargets(t *testing.T) {
 		move(4, 900),                // MOVE GPR4, 900
 		{0x22000000, 4, 0},          // PLAY_PL GPR4
 		{0x22000000, 5, 0},          // PLAY_PL GPR5 (unknown)
-		{0x50400003, 4, 1},          // ADD GPR4, 1: no longer known
-		{0x22000000, 4, 0},          // PLAY_PL GPR4 (unknown)
+		{0x50400003, 4, 1},          // ADD GPR4, 1: 901
+		{0x22000000, 4, 0},          // PLAY_PL GPR4 (901, worked out)
 		jumpObject(2),               // JUMP_OBJECT 2
 		jumpTitle(3),                // JUMP_TITLE 3
 		{0x21820000, 1, 0},          // CALL_OBJECT 1
@@ -193,7 +193,7 @@ func TestObjectTargets(t *testing.T) {
 		reg        bool
 	}{
 		{"PLAY_PL", 7, -1, false}, {"PLAY_PL_PI", 8, 3, false}, {"PLAY_PL_PM", 9, -1, false},
-		{"PLAY_PL", 900, -1, true}, {"PLAY_PL", -1, -1, false}, {"PLAY_PL", -1, -1, false},
+		{"PLAY_PL", 900, -1, true}, {"PLAY_PL", -1, -1, false}, {"PLAY_PL", 901, -1, true},
 		{"JUMP_OBJECT", 2, -1, false}, {"JUMP_TITLE", 3, -1, false}, {"CALL_OBJECT", 1, -1, false}, {"CALL_TITLE", 2, -1, false},
 	}
 	if len(got) != len(want) {
