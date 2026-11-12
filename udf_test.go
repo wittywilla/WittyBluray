@@ -342,8 +342,8 @@ func TestUDFImage(t *testing.T) {
 			if d.Label != "SYNTH_DISC" || len(d.Playlists) != len(s.playlists) || len(d.Clips) != len(s.clips) {
 				t.Errorf("label %q, %d playlists, %d clips; damaged %v", d.Label, len(d.Playlists), len(d.Clips), d.Damaged)
 			}
-			// Files kept inside their entries are read by this engine itself
-			// (imageSource.embedded): WittyDisc 0.2.0 places them wrongly.
+			// Files kept inside their entries are read by WittyDisc, which
+			// places them right from 0.2.1.
 			if len(d.Damaged) != 0 || len(d.FromBackup) != 0 {
 				t.Errorf("damaged %v, from backup %v", d.Damaged, d.FromBackup)
 			}

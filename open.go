@@ -825,6 +825,11 @@ func (s *imageSource) Extents(name string) ([]FileExtent, error) {
 	}
 	out := make([]FileExtent, 0, len(f.Extents))
 	for _, e := range f.Extents {
+		// A part of the file the disc doesn't record (WittyDisc gives it no place on the
+		// image, offset -1) can't be streamed from the image as it lies.
+		if e.Offset < 0 {
+			return nil, fmt.Errorf("%s: part of it isn't recorded on the disc", name)
+		}
 		out = append(out, FileExtent{Path: s.img.Path, Offset: e.Offset, Length: e.Length})
 	}
 	return out, nil
