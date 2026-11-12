@@ -1,0 +1,10 @@
+{
+  "format": "wittymodule-sdui",
+  "formatVersion": 1,
+  "module": "wittybluray",
+  "catalog": 2,
+  "theme": {
+    "scope": "wittybluray",
+    "label": "Blu-rays"
+  }
+}
