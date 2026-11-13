@@ -6,6 +6,6 @@ toolchain go1.27.3
 
 require (
 	github.com/ebitengine/purego v0.11.2
-	github.com/wittywilla/wittydisc v0.2.0
-	github.com/wittywilla/wittymodule v0.3.0
+	github.com/wittywilla/wittydisc v0.2.1
+	github.com/wittywilla/wittymodule v0.4.0
 )
