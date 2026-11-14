@@ -28,5 +28,12 @@
     "data"
   ],
   "dataFormat": 1,
-  "dataFrom": 1
+  "dataFrom": 1,
+  "capabilities": {
+    "logTopics": [
+      "nav|Navigation|Every step the Blu-ray navigator takes: titles, playlists and commands",
+      "menus|Menus and buttons|Each menu read from the disc, and each button pressed",
+      "bdj|Java menus|What a disc's Java program prints, and what it asks the player to do"
+    ]
+  }
 }
