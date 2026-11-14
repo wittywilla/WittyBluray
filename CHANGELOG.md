@@ -3,8 +3,9 @@
 What changed in WittyBluray, newest first. What changed before it had a repository of its own is in the
 [WittyMediaServer changelog](https://github.com/wittywilla/WittyMediaServer/blob/master/CHANGELOG.md).
 
-## Unreleased
+## 0.5.0
 
+- Built on WittyModule 0.5.4 and module API 5.
 - WittyLog: the module declares its own log options (`nav`, `menus`, `bdj`) in `module.json`; the server no longer lists them for it.
 - **WittyBluray 0.5.0: module API 5.** A Blu-ray's page is WittyBluray's own: its routes at `/api/modules/wittybluray/discs/{id}` (the page), `/analysis` (why a playlist is the film, an administrator's "Rank again", and comparing with a libbluray on the server), `/choice` (an administrator's choice of film, and forgetting it), `/labels` (the names of its playlists and chapters) and `/libbluray` (whether one can be asked, for Settings), and the sources of its sections in every app, answered by its service. The commands those rows run are its own (`wittybluray.choose`, `wittybluray.clearChoice`, `wittybluray.rank`, `wittybluray.compare`). The names are kept in its own database (`labels.db`), starting empty; removing WittyBluray asks whether to keep them. The disc's ranking from this module's helper and an administrator's choice of film are the server's, asked for through its host API. The same program is the helper for one disc and the service: the service reads no disc. The player, with the disc's own menus, is WittyDisc's.
 - **WittyBluray 0.4.0:** a Blu-ray's page in every app comes from this module's `sdui.json`: Feature Presentation, Scenes, Episodes, Other versions, Bonus material, Disc menus, Why this playlist, Diagnosis and the refusal of an encrypted disc, as sections between the title's header and its cast. The player stays the app's own.

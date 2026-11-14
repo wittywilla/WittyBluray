@@ -2,5 +2,5 @@ github.com/wittywilla/wittybluray v0.3.0 h1:pM8iOrnPeE7oJYa7eu4+fpqipiSgnH/agccv
 github.com/wittywilla/wittybluray v0.3.0/go.mod h1:9IT3an4dMWAiO1VrBr19aEwMz4xu/LrKWWMT12UM/HA=
 github.com/wittywilla/wittydisc v0.2.0 h1:ukluqAo2jwerFUG/aI3Kd544f3DMuBD/rSA6DLiSjcI=
 github.com/wittywilla/wittydisc v0.2.0/go.mod h1:qQE6MC1dQtG9GjYNBJNkOt9p2M5FBQ3VqV3k4CMCfLQ=
-github.com/wittywilla/wittymodule v0.3.0 h1:mJL5qK2/j2GiQytFtJNkJzBE3/aJDzH/m2A6Bgn1v+k=
-github.com/wittywilla/wittymodule v0.3.0/go.mod h1:s4SONzwSeE/5v+HbhiO4H2CaIOxZpjS187rwwQY0kj8=
+github.com/wittywilla/wittymodule v0.5.4 h1:6twJRfowxf8wGZBotJSk8Em2jj5ktUVxlN99aNcPsyI=
+github.com/wittywilla/wittymodule v0.5.4/go.mod h1:s4SONzwSeE/5v+HbhiO4H2CaIOxZpjS187rwwQY0kj8=
