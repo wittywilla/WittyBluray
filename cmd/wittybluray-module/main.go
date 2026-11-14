@@ -18,11 +18,13 @@
 
 // Command wittybluray-module is WittyBluray as a helper process, so a new version
 // can reach a server without a new server. See WittyModule for the protocol, and
-// package helper for what it answers.
+// package helper for what it answers. Started as WittyBluray's service (module API 5), the same
+// program answers its routes and SDUI sources instead, and opens no disc (package api).
 package main
 
 import (
 	"github.com/wittywilla/wittybluray"
+	"github.com/wittywilla/wittybluray/api"
 	"github.com/wittywilla/wittybluray/diagnose"
 	"github.com/wittywilla/wittybluray/helper"
 	"github.com/wittywilla/wittymodule"
@@ -30,5 +32,5 @@ import (
 
 func main() {
 	h := &diagnose.Handler{Next: (&helper.Helper{}).Handle}
-	wittymodule.Main(wittybluray.ManifestJSON, h.Handle)
+	wittymodule.Main(wittybluray.ManifestJSON, (&api.Dual{Config: api.Config{Module: wittybluray.ModuleID, Bluray: true}, Helper: h.Handle}).Handle)
 }

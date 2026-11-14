@@ -1,12 +1,12 @@
 {
   "id": "wittybluray",
   "name": "WittyBluray",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "repo": "wittywilla/WittyBluray",
   "license": "AGPL-3.0-or-later",
   "delivery": "helper",
   "entry": "wittybluray-module",
-  "api": 4,
+  "api": 5,
   "minServer": "0.8.0-alpha",
   "maxServer": "0.8.x",
   "group": "discs",
@@ -17,8 +17,8 @@
   "requires": [
     "wittydisc"
   ],
-  "updates": "All of the engine: playlists and clips, running a disc's program and its Java programs, reading menus and subtitles.",
-  "stays": "Drawing menus into pictures stays with the server, and so does refusing encrypted discs, on purpose. The session code that turns steps into streams stays too.",
+  "updates": "All of the engine: playlists and clips, running a disc's program and its Java programs, reading menus and subtitles; and a Blu-ray's page: its sections in every app, why a playlist is the film, and the names given to its playlists and chapters, kept in its own database.",
+  "stays": "Drawing menus into pictures stays with the server, and so does refusing encrypted discs and checking what the engine says, on purpose. The session code that turns steps into streams stays too. Which playlist is a disc's film, and an administrator's choice of another, are kept with the server's copy of the disc.",
   "needs": [
     "FFmpeg, which comes with the server",
     "Java, only for discs with Java menus, and only if you turn that on"
@@ -26,5 +26,7 @@
   "permissions": [
     "programs",
     "data"
-  ]
+  ],
+  "dataFormat": 1,
+  "dataFrom": 1
 }
