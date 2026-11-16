@@ -166,17 +166,6 @@ go run ./cmd/wittybluray rank MY_DISC.iso
 
 GNU Affero General Public License v3.0 (or later): see [LICENSE](LICENSE) and [NOTICE](NOTICE). If you redistribute it or build on it, please keep the NOTICE attribution. It's an original implementation and contains no code from other players. `bdj/runtime.jar` is original code that re-implements the published interfaces disc applications link against, and contains no Java runtime. Each release archive carries a `THIRD-PARTY-NOTICES.txt` for what its programs link.
 
-## Legal
-
-WittyBluray is an independent open-source project. It isn't associated with, sponsored by or
-endorsed by the Blu-ray Disc Association, any film studio or any other player project. “Blu-ray” and
-“Blu-ray Disc” are trademarks of the Blu-ray Disc Association; WittyBluray isn't a licensed or
-certified Blu-ray product and uses no Blu-ray logo. AACS-encrypted discs are refused, BD+ isn't run,
-nothing is decrypted, and no media comes with it: you're responsible for having the rights to what
-you open. Any third-party names here only describe what it works with, and belong to their owners.
-It's provided “as is”, with no warranty; see [LICENSE](LICENSE). Local law applies to how you use
-it. This isn't legal advice.
-
 <!-- module-kit -->
 ## Releasing
 
@@ -198,3 +187,14 @@ To take a version back, run the *withdraw* workflow from the *Actions* tab. It a
 
 Licensed under AGPL-3.0-or-later: see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 <!-- /module-kit -->
+
+## Legal
+
+WittyBluray is an independent open-source project. It isn't associated with, sponsored by or
+endorsed by the Blu-ray Disc Association, any film studio or any other player project. “Blu-ray” and
+“Blu-ray Disc” are trademarks of the Blu-ray Disc Association; WittyBluray isn't a licensed or
+certified Blu-ray product and uses no Blu-ray logo. AACS-encrypted discs are refused, BD+ isn't run,
+nothing is decrypted, and no media comes with it: you're responsible for having the rights to what
+you open. Any third-party names here only describe what it works with, and belong to their owners.
+It's provided “as is”, with no warranty; see [LICENSE](LICENSE). Local law applies to how you use
+it. This isn't legal advice.
