@@ -4,7 +4,7 @@
 package wittybluray
 
 import (
-	"github.com/wittywilla/wittybluray/api"
+	"github.com/wittywilla/wittybluray/commands"
 	"github.com/wittywilla/wittymodule/sdui"
 )
 
@@ -13,7 +13,7 @@ const ModuleID = "wittybluray"
 
 // The sources of a Blu-ray's sections on its page. Each takes the page's title ($item) and
 // answers only for a Blu-ray: on any other title its sections are left out. WittyBluray's service
-// answers them (package api), asking the server's host API for what only the server keeps: the
+// answers them (package api; the commands are package commands, with no networking, for the player), asking the server's host API for what only the server keeps: the
 // disc's ranking from this module's helper, checked there, and an administrator's choice of film.
 // The names given to its playlists are WittyBluray's own.
 const (
@@ -58,7 +58,7 @@ func UI() *sdui.Module {
 		"Which playlist is the film and why, how sure the disc engine is, and the other candidates, each to play once.", item(limit(20, 32)), "landscape")
 	src(SourceCopy, "Diagnosis", "check", "Diagnosis",
 		"What was wrong with this copy of the disc and what was mended, and for an administrator the way to check it.", item(limit(32, 32)), "landscape")
-	m.Commands = api.Config{Module: ModuleID, Bluray: true}.Commands()
+	m.Commands = commands.List(ModuleID, true)
 	// On a title's page, between its header and its cast and crew, in this order.
 	put := func(s sdui.Section) {
 		m.Inserts = append(m.Inserts, sdui.ModuleInsert{Page: "detail", Before: "credits", Section: s})

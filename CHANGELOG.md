@@ -5,6 +5,7 @@ What changed in WittyBluray, newest first. What changed before it had a reposito
 
 ## 0.5.1
 
+- The engine (package `wittybluray`) no longer links the module's service: its commands are described by the new package `commands`, which has no networking, so WittyMediaPlayer's helper contains no network code. A test keeps it so.
 - Tests: TestDual closes the database it leaves open, so the tests pass on Windows (#6).
 
 ## 0.5.0
