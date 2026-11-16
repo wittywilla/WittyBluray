@@ -1,6 +1,8 @@
-github.com/wittywilla/wittybluray v0.3.0 h1:pM8iOrnPeE7oJYa7eu4+fpqipiSgnH/agccvinhGpv8=
-github.com/wittywilla/wittybluray v0.3.0/go.mod h1:9IT3an4dMWAiO1VrBr19aEwMz4xu/LrKWWMT12UM/HA=
-github.com/wittywilla/wittydisc v0.2.0 h1:ukluqAo2jwerFUG/aI3Kd544f3DMuBD/rSA6DLiSjcI=
-github.com/wittywilla/wittydisc v0.2.0/go.mod h1:qQE6MC1dQtG9GjYNBJNkOt9p2M5FBQ3VqV3k4CMCfLQ=
+github.com/ebitengine/purego v0.11.2 h1:WWiTx8rD8zYdOwSj8O/NiNbsOvSAgJMTlyV1XlbUSeU=
+github.com/ebitengine/purego v0.11.2/go.mod h1:DCHPP08djqhNSoTfImcnHYQRZmd0qhakvrozqaEYhGQ=
+github.com/wittywilla/wittybluray v0.5.1 h1:4hHNAKLRZAA5g3WaqmRqc1/XPXZOxSgXXAUPMkMj9Oc=
+github.com/wittywilla/wittybluray v0.5.1/go.mod h1:O7ZSxOZ65i4s0pE24XCh6CRW9ZVme8uNzzFoEKyq2/k=
+github.com/wittywilla/wittydisc v0.3.2 h1:g1O03ky7Lcc8B/zT30Y/QdGOkonpb6354cKIWbxw5Bc=
+github.com/wittywilla/wittydisc v0.3.2/go.mod h1:qQE6MC1dQtG9GjYNBJNkOt9p2M5FBQ3VqV3k4CMCfLQ=
 github.com/wittywilla/wittymodule v0.5.4 h1:6twJRfowxf8wGZBotJSk8Em2jj5ktUVxlN99aNcPsyI=
 github.com/wittywilla/wittymodule v0.5.4/go.mod h1:s4SONzwSeE/5v+HbhiO4H2CaIOxZpjS187rwwQY0kj8=
