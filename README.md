@@ -162,6 +162,8 @@ go run ./cmd/wittybluray rank MY_DISC.iso
 
 `wittyblurayplayer/` is the same engine as a program of its own for WittyMediaPlayer, with its own `go.mod` and manifest.
 
+**Working on a Mac?** Start with WittyMediaServer's [MAC-START-HERE.md](https://github.com/wittywilla/WittyMediaServer/blob/v0.8.1-alpha/MAC-START-HERE.md): what to install, what to clone, and every Mac task in order: this repository's is item 7.6 (#18).
+
 ## Licence
 
 GNU Affero General Public License v3.0 (or later): see [LICENSE](LICENSE) and [NOTICE](NOTICE). If you redistribute it or build on it, please keep the NOTICE attribution. It's an original implementation and contains no code from other players. `bdj/runtime.jar` is original code that re-implements the published interfaces disc applications link against, and contains no Java runtime. Each release archive carries a `THIRD-PARTY-NOTICES.txt` for what its programs link.
