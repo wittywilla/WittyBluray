@@ -513,10 +513,6 @@ func fmtDur(sec float64) string {
 	return fmt.Sprintf("%d:%02d:%02d", s/3600, s/60%60, s%60)
 }
 
-func (c *Candidate) add(points float64, flag Flag, format string, args ...any) {
-	c.note("", points, flag, format, args...)
-}
-
 // note records one signal: its points, its flag, and its sentence, both as
 // a reason for people and as evidence for programs.
 func (c *Candidate) note(signal string, points float64, flag Flag, format string, args ...any) {
