@@ -5,7 +5,7 @@ What changed in WittyBluray, newest first. What changed before it had a reposito
 
 ## 0.5.2
 
-- Nothing changes in how Blu-ray discs play: this release only tidies the module's code.
+- **Safer disc menus on Linux:** the Java runtime for disc menus runs in namespaces of its own where the system allows them: without network, without other programs' shared memory, and ending with the server.
 
 ## Developer notes for 0.5.2
 

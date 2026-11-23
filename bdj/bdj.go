@@ -231,6 +231,9 @@ func Start(ctx context.Context, d *wittybluray.Disc, o Options) (*Host, error) {
 	args := append(jvmArgs(jar), "-Djava.io.tmpdir="+tmp, "witty.bdj.Main", vfs, o.PersistDir, tmp)
 	cmd := javaCommand(o.Java.Path, args...)
 	hide(cmd)
+	if confine(cmd) && o.Log != nil {
+		o.Log("running in its own namespaces, without network")
+	}
 	cmd.Dir = tmp
 	cmd.Env = minimalEnv()
 	stdin, err := cmd.StdinPipe()
