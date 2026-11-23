@@ -3,6 +3,10 @@
 What changed in WittyBluray, newest first. What changed before it had a repository of its own is in the
 [WittyMediaServer changelog](https://github.com/wittywilla/WittyMediaServer/blob/master/CHANGELOG.md).
 
+## 0.5.3
+
+- **Updated dependencies:** github.com/wittywilla/wittydisc from 0.2.1 to 0.3.3; github.com/wittywilla/wittymodule from 0.5.4 to 0.5.5; actions/setup-go from 7.0.0 to 7.1.0; github.com/ebitengine/purego from 0.11.2 to 0.11.3.
+
 ## 0.5.2
 
 - **Safer disc menus on Linux:** the Java runtime for disc menus runs in namespaces of its own where the system allows them: without network, without other programs' shared memory, and ending with the server.
