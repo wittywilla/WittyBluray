@@ -3,6 +3,10 @@
 What changed in WittyBluray, newest first. What changed before it had a repository of its own is in the
 [WittyMediaServer changelog](https://github.com/wittywilla/WittyMediaServer/blob/master/CHANGELOG.md).
 
+## Unreleased
+
+- On Linux, the Java runtime for disc menus runs in namespaces of its own where the system allows them: without network, without other programs' shared memory, and ending with the server.
+
 ## wittyblurayplayer 0.4.0
 
 - The player module declares module API 5, so WittyMediaPlayer on WittyModule 0.5.x uses it. Built on wittybluray 0.5.1, whose engine has no network code, and WittyDisc 0.3.2.
