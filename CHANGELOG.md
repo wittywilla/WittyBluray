@@ -5,7 +5,7 @@ What changed in WittyBluray, newest first. What changed before it had a reposito
 
 ## Unreleased
 
-- On Linux, the Java runtime for disc menus runs in namespaces of its own where the system allows them: without network, without other programs' shared memory, and ending with the server.
+- **WittyBluray 0.5.2:** On Linux, the Java runtime for disc menus runs in namespaces of its own where the system allows them: without network, without other programs' shared memory, and ending with the server.
 
 ## wittyblurayplayer 0.4.0
 
